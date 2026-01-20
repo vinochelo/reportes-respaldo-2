@@ -168,7 +168,7 @@ export function PdfReorderForm() {
       // Step 3: Process PDF to extract EBELN from each page using GenAI
       const getEbelnToPageMap = async () => {
         setProgressMessage("Extracting text from PDF...");
-        const pdfDoc = await pdfjs.getDocument(pdfBuffer).promise;
+        const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
         const pageTexts: { pageNumber: number; pageText: string }[] = [];
 
