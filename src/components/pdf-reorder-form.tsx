@@ -56,7 +56,7 @@ const FileInput: React.FC<FileInputProps> = ({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center w-full p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+        "relative flex flex-col items-center justify-center w-full p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
         file ? "border-primary" : "border-border hover:border-primary/50 bg-card"
       )}
       onClick={() => inputRef.current?.click()}
@@ -177,12 +177,23 @@ export function PdfReorderForm() {
         setProgressMessage("Analyzing PDF pages with AI...");
         const ebelnPages = await extractEbelnFromPdfPages({ pdfPages: pageTexts });
 
-        const ebelnToPageMap = new Map<string, number>();
+        // A single purchase order (EBELN) can span multiple pages.
+        const ebelnToPageMap = new Map<string, number[]>();
         for (const item of ebelnPages) {
           if (item.ebeln) {
-            ebelnToPageMap.set(item.ebeln.trim(), item.pageNumber);
+            const ebelnKey = item.ebeln.trim();
+            if (!ebelnToPageMap.has(ebelnKey)) {
+              ebelnToPageMap.set(ebelnKey, []);
+            }
+            ebelnToPageMap.get(ebelnKey)!.push(item.pageNumber);
           }
         }
+        
+        // Sort pages for each purchase order to maintain natural order.
+        for (const pages of ebelnToPageMap.values()) {
+          pages.sort((a, b) => a - b);
+        }
+
         return { ebelnToPageMap, totalPages: numPages };
       };
 
@@ -199,16 +210,18 @@ export function PdfReorderForm() {
       for (const row of orderedRows) {
         const ebeln = row.ebeln;
         if (ebelnToPageMap.has(ebeln)) {
-          const pageNumber = ebelnToPageMap.get(ebeln)!;
-          if (!foundPages.has(pageNumber)) {
-            newPageOrder.push(pageNumber);
-            foundPages.add(pageNumber);
+          const pageNumbers = ebelnToPageMap.get(ebeln)!;
+          for (const pageNumber of pageNumbers) {
+            if (!foundPages.has(pageNumber)) {
+              newPageOrder.push(pageNumber);
+              foundPages.add(pageNumber);
+            }
           }
         }
       }
       
       const originalPages = Array.from({ length: totalPages }, (_, i) => i + 1);
-      const remainingPages = originalPages.filter(p => !foundPages.has(p));
+      const remainingPages = originalPages.filter(p => !foundPages.has(p)).sort((a, b) => a - b);
       const finalPageOrder = [...newPageOrder, ...remainingPages];
 
 
