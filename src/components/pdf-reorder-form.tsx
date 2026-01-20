@@ -135,7 +135,7 @@ export function PdfReorderForm() {
       const excelBuffer = await excelFile.arrayBuffer();
 
       // Step 2: Process Excel to get the desired order
-      const getOrderedEbelns = async () => {
+      const getOrderedRows = async () => {
         setProgressMessage("Parsing Excel file...");
         const workbook = XLSX.read(excelBuffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
@@ -154,8 +154,8 @@ export function PdfReorderForm() {
         // Sort by document number (column A)
         filteredAndTyped.sort((a, b) => a.docNumber.localeCompare(b.docNumber, undefined, { numeric: true }));
         
-        // Return the list of EBELNs (purchase order, column B) in the correct order
-        return filteredAndTyped.map(row => row.ebeln);
+        // Return the full sorted list of objects
+        return filteredAndTyped;
       };
 
       // Step 3: Process PDF to extract EBELN (purchase order number) from each page using GenAI
@@ -186,8 +186,8 @@ export function PdfReorderForm() {
         return { ebelnToPageMap, totalPages: numPages };
       };
 
-      const [orderedEbelns, { ebelnToPageMap, totalPages }] = await Promise.all([
-        getOrderedEbelns(),
+      const [orderedRows, { ebelnToPageMap, totalPages }] = await Promise.all([
+        getOrderedRows(),
         getEbelnToPageMap(),
       ]);
 
@@ -196,7 +196,8 @@ export function PdfReorderForm() {
       const newPageOrder: number[] = [];
       const foundPages = new Set<number>();
 
-      for (const ebeln of orderedEbelns) {
+      for (const row of orderedRows) {
+        const ebeln = row.ebeln;
         if (ebelnToPageMap.has(ebeln)) {
           const pageNumber = ebelnToPageMap.get(ebeln)!;
           if (!foundPages.has(pageNumber)) {
@@ -213,7 +214,7 @@ export function PdfReorderForm() {
 
       // Step 5: Create the new PDF
       setProgressMessage("Generating new PDF...");
-      const originalPdfDoc = await PDFDocument.load(pdfBuffer.slice(0));
+      const originalPdfDoc = await PDFDocument.load(pdfBuffer);
       const newPdfDoc = await PDFDocument.create();
 
       const copiedPageIndices = finalPageOrder.map(p => p - 1);
