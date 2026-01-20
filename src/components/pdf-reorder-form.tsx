@@ -140,21 +140,21 @@ export function PdfReorderForm() {
         const workbook = XLSX.read(excelBuffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        // Expects column C to be 'EBELN' and column H to be 'BELNR'
-        const data: { EBELN?: string | number; BELNR?: string | number }[] =
+        // Expects column A "Etiquetas de fila" to be the document number and column B "EBELN" to be the purchase order.
+        const data: { "Etiquetas de fila"?: string | number; EBELN?: string | number }[] =
           XLSX.utils.sheet_to_json(worksheet);
 
         const filteredAndTyped = data
-          .filter(row => row.EBELN && row.BELNR)
+          .filter(row => row['Etiquetas de fila'] && row.EBELN)
           .map(row => ({
+            docNumber: String(row['Etiquetas de fila']).trim(),
             ebeln: String(row.EBELN).trim(),
-            belnr: String(row.BELNR).trim(),
           }));
 
-        // Sort by BELNR (document number, column H)
-        filteredAndTyped.sort((a, b) => a.belnr.localeCompare(b.belnr, undefined, { numeric: true }));
+        // Sort by document number (column A)
+        filteredAndTyped.sort((a, b) => a.docNumber.localeCompare(b.docNumber, undefined, { numeric: true }));
         
-        // Return the list of EBELNs (purchase order, column C) in the correct order
+        // Return the list of EBELNs (purchase order, column B) in the correct order
         return filteredAndTyped.map(row => row.ebeln);
       };
 
