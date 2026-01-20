@@ -18,7 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { extractEbelnFromPdfPages } from "@/ai/flows/extract-ebeln-from-pdf-pages";
+import { extractBelnrFromPdfPages } from "@/ai/flows/extract-ebeln-from-pdf-pages";
 import { cn } from "@/lib/utils";
 
 type Status = "idle" | "processing" | "success" | "error";
@@ -134,39 +134,22 @@ export function PdfReorderForm() {
       const pdfBuffer = await pdfFile.arrayBuffer();
       const excelBuffer = await excelFile.arrayBuffer();
 
-      // Step 2: Process Excel to get the desired order of EBELNs
-      const getOrderedEbelns = async () => {
+      // Step 2: Process Excel to get the desired order of BELNRs
+      const getOrderedBelnrs = async () => {
         setProgressMessage("Parsing Excel file...");
         const workbook = XLSX.read(excelBuffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const data: { EBELN?: string | number; BELNR?: string | number }[] =
+        const data: { BELNR?: string | number }[] =
           XLSX.utils.sheet_to_json(worksheet);
 
-        const belnrOrder: string[] = [];
-        const belnrToEbelnMap = new Map<string, string[]>();
-
-        for (const row of data) {
-          const ebeln = row.EBELN ? String(row.EBELN).trim() : "";
-          const belnr = row.BELNR ? String(row.BELNR).trim() : "";
-
-          if (!belnr || !ebeln) continue;
-
-          if (!belnrToEbelnMap.has(belnr)) {
-            belnrOrder.push(belnr);
-            belnrToEbelnMap.set(belnr, []);
-          }
-          const ebelnsForBelnr = belnrToEbelnMap.get(belnr)!;
-          if (!ebelnsForBelnr.includes(ebeln)) {
-            ebelnsForBelnr.push(ebeln);
-          }
-        }
-
-        return belnrOrder.flatMap((belnr) => belnrToEbelnMap.get(belnr)!);
+        return data
+          .map((row) => (row.BELNR ? String(row.BELNR).trim() : null))
+          .filter((belnr): belnr is string => belnr !== null);
       };
 
-      // Step 3: Process PDF to extract EBELN from each page using GenAI
-      const getEbelnToPageMap = async () => {
+      // Step 3: Process PDF to extract BELNR from each page using GenAI
+      const getBelnrToPageMap = async () => {
         setProgressMessage("Extracting text from PDF...");
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
@@ -182,31 +165,29 @@ export function PdfReorderForm() {
         }
 
         setProgressMessage("Analyzing PDF pages with AI...");
-        const ebelnPages = await extractEbelnFromPdfPages({ pdfPages: pageTexts });
+        const belnrPages = await extractBelnrFromPdfPages({ pdfPages: pageTexts });
 
-        const ebelnToPageMap = new Map<string, number>();
-        for (const item of ebelnPages) {
-          if (item.ebeln) {
-            ebelnToPageMap.set(item.ebeln.trim(), item.pageNumber);
+        const belnrToPageMap = new Map<string, number>();
+        for (const item of belnrPages) {
+          if (item.belnr) {
+            belnrToPageMap.set(item.belnr.trim(), item.pageNumber);
           }
         }
-        return { ebelnToPageMap, totalPages: numPages };
+        return { belnrToPageMap, totalPages: numPages };
       };
 
-      const [orderedEbelns, { ebelnToPageMap, totalPages }] = await Promise.all([
-        getOrderedEbelns(),
-        getEbelnToPageMap(),
+      const [orderedBelnrs, { belnrToPageMap, totalPages }] = await Promise.all([
+        getOrderedBelnrs(),
+        getBelnrToPageMap(),
       ]);
 
       // Step 4: Determine the new page order
       setProgressMessage("Reordering pages...");
       const newPageOrder: number[] = [];
-      const foundEbelns = new Set<string>();
 
-      for (const ebeln of orderedEbelns) {
-        if (ebelnToPageMap.has(ebeln) && !foundEbelns.has(ebeln)) {
-          newPageOrder.push(ebelnToPageMap.get(ebeln)!);
-          foundEbelns.add(ebeln);
+      for (const belnr of orderedBelnrs) {
+        if (belnrToPageMap.has(belnr)) {
+          newPageOrder.push(belnrToPageMap.get(belnr)!);
         }
       }
       
@@ -218,7 +199,7 @@ export function PdfReorderForm() {
 
       // Step 5: Create the new PDF
       setProgressMessage("Generating new PDF...");
-      const originalPdfDoc = await PDFDocument.load(pdfBuffer);
+      const originalPdfDoc = await PDFDocument.load(pdfBuffer.slice(0));
       const newPdfDoc = await PDFDocument.create();
 
       const copiedPageIndices = finalPageOrder.map(p => p - 1);

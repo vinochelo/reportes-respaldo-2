@@ -1,17 +1,17 @@
 'use server';
 
 /**
- * @fileOverview Extracts the EBELN value from each page of a PDF.
+ * @fileOverview Extracts the BELNR value from each page of a PDF.
  *
- * - extractEbelnFromPdfPages - A function that handles the extraction process.
- * - ExtractEbelnFromPdfPagesInput - The input type for the extractEbelnFromPdfPages function.
- * - ExtractEbelnFromPdfPagesOutput - The return type for the extractEbelnFromPdfPages function.
+ * - extractBelnrFromPdfPages - A function that handles the extraction process.
+ * - ExtractBelnrFromPdfPagesInput - The input type for the extractBelnrFromPdfPages function.
+ * - ExtractBelnrFromPdfPagesOutput - The return type for the extractBelnrFromPdfPages function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const ExtractEbelnFromPdfPagesInputSchema = z.object({
+const ExtractBelnrFromPdfPagesInputSchema = z.object({
   pdfPages: z.array(
     z.object({
       pageNumber: z.number().describe('The page number of the PDF.'),
@@ -19,45 +19,43 @@ const ExtractEbelnFromPdfPagesInputSchema = z.object({
     })
   ).describe('An array of PDF pages with their text content and page numbers.'),
 });
-export type ExtractEbelnFromPdfPagesInput = z.infer<typeof ExtractEbelnFromPdfPagesInputSchema>;
+export type ExtractBelnrFromPdfPagesInput = z.infer<typeof ExtractBelnrFromPdfPagesInputSchema>;
 
-const ExtractEbelnFromPdfPagesOutputSchema = z.array(
+const ExtractBelnrFromPdfPagesOutputSchema = z.array(
   z.object({
     pageNumber: z.number().describe('The page number of the PDF.'),
-    ebeln: z.string().describe('The EBELN value extracted from the page.'),
+    belnr: z.string().describe('The BELNR value extracted from the page.'),
   })
-).describe('An array of page numbers and their corresponding EBELN values.');
-export type ExtractEbelnFromPdfPagesOutput = z.infer<typeof ExtractEbelnFromPdfPagesOutputSchema>;
+).describe('An array of page numbers and their corresponding BELNR values.');
+export type ExtractBelnrFromPdfPagesOutput = z.infer<typeof ExtractBelnrFromPdfPagesOutputSchema>;
 
-export async function extractEbelnFromPdfPages(
-  input: ExtractEbelnFromPdfPagesInput
-): Promise<ExtractEbelnFromPdfPagesOutput> {
-  return extractEbelnFromPdfPagesFlow(input);
+export async function extractBelnrFromPdfPages(
+  input: ExtractBelnrFromPdfPagesInput
+): Promise<ExtractBelnrFromPdfPagesOutput> {
+  return extractBelnrFromPdfPagesFlow(input);
 }
 
-const extractEbelnPrompt = ai.definePrompt({
-  name: 'extractEbelnPrompt',
-  input: {schema: ExtractEbelnFromPdfPagesInputSchema},
-  output: {schema: ExtractEbelnFromPdfPagesOutputSchema},
+const extractBelnrPrompt = ai.definePrompt({
+  name: 'extractBelnrPrompt',
+  input: {schema: ExtractBelnrFromPdfPagesInputSchema},
+  output: {schema: ExtractBelnrFromPdfPagesOutputSchema},
   prompt: `You are an expert data extraction specialist.
 
-  Given the content of each page in a PDF, extract the EBELN value from each page.
-  Return an array of JSON objects, where each object contains the pageNumber and the extracted ebeln from that page.
-  If no EBELN is found return null.
+  Given the content of each page in a PDF, extract the BELNR value from each page.
+  Return an array of JSON objects, where each object contains the pageNumber and the extracted belnr from that page.
+  If no BELNR is found return null.
 
   Here's an example of the expected output format:
-  \`\`\`
   [
     {
       "pageNumber": 1,
-      "ebeln": "4500000001"
+      "belnr": "5105646951"
     },
     {
       "pageNumber": 2,
-      "ebeln": "4500000002"
+      "belnr": "5105646952"
     }
   ]
-  \`\`\`
 
   Here are the PDF pages:
   {{#each pdfPages}}
@@ -66,14 +64,14 @@ const extractEbelnPrompt = ai.definePrompt({
   {{/each}}`,
 });
 
-const extractEbelnFromPdfPagesFlow = ai.defineFlow(
+const extractBelnrFromPdfPagesFlow = ai.defineFlow(
   {
-    name: 'extractEbelnFromPdfPagesFlow',
-    inputSchema: ExtractEbelnFromPdfPagesInputSchema,
-    outputSchema: ExtractEbelnFromPdfPagesOutputSchema,
+    name: 'extractBelnrFromPdfPagesFlow',
+    inputSchema: ExtractBelnrFromPdfPagesInputSchema,
+    outputSchema: ExtractBelnrFromPdfPagesOutputSchema,
   },
   async input => {
-    const {output} = await extractEbelnPrompt(input);
+    const {output} = await extractBelnrPrompt(input);
     return output!;
   }
 );
