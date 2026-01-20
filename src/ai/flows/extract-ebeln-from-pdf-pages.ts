@@ -46,7 +46,7 @@ const extractEbelnPrompt = ai.definePrompt({
   If no EBELN is found return null.
 
   Here's an example of the expected output format:
-  ```json
+  \`\`\`
   [
     {
       "pageNumber": 1,
@@ -57,7 +57,7 @@ const extractEbelnPrompt = ai.definePrompt({
       "ebeln": "4500000002"
     }
   ]
-  ```
+  \`\`\`
 
   Here are the PDF pages:
   {{#each pdfPages}}
