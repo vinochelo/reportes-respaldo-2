@@ -21,11 +21,6 @@ import { useToast } from "@/hooks/use-toast";
 import { extractEbelnFromPdfPages } from "@/ai/flows/extract-ebeln-from-pdf-pages";
 import { cn } from "@/lib/utils";
 
-// Configure PDF.js worker
-if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-}
-
 type Status = "idle" | "processing" | "success" | "error";
 
 interface FileInputProps {
@@ -107,6 +102,13 @@ export function PdfReorderForm() {
   const [progressMessage, setProgressMessage] = React.useState("");
   const [downloadUrl, setDownloadUrl] = React.useState<string | null>(null);
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    // Configure PDF.js worker
+    if (typeof window !== "undefined") {
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+    }
+  }, []);
 
   const resetState = () => {
     setPdfFile(null);
