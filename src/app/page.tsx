@@ -27,9 +27,11 @@ export default function Home() {
             <PdfReorderForm />
           </CardContent>
         </Card>
-        <footer className="text-center text-sm text-muted-foreground">
-          © {year} PDF ReOrder. All rights reserved.
-        </footer>
+        {year && (
+          <footer className="text-center text-sm text-muted-foreground">
+            © {year} PDF ReOrder. All rights reserved.
+          </footer>
+        )}
       </div>
     </div>
   );
