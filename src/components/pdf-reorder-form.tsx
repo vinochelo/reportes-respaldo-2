@@ -18,7 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { extractBelnrFromPdfPages } from "@/ai/flows/extract-ebeln-from-pdf-pages";
+import { extractEbelnFromPdfPages } from "@/ai/flows/extract-ebeln-from-pdf-pages";
 import { cn } from "@/lib/utils";
 
 type Status = "idle" | "processing" | "success" | "error";
@@ -134,22 +134,32 @@ export function PdfReorderForm() {
       const pdfBuffer = await pdfFile.arrayBuffer();
       const excelBuffer = await excelFile.arrayBuffer();
 
-      // Step 2: Process Excel to get the desired order of BELNRs
-      const getOrderedBelnrs = async () => {
+      // Step 2: Process Excel to get the desired order
+      const getOrderedEbelns = async () => {
         setProgressMessage("Parsing Excel file...");
         const workbook = XLSX.read(excelBuffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const data: { BELNR?: string | number }[] =
+        // Expects column C to be 'EBELN' and column H to be 'BELNR'
+        const data: { EBELN?: string | number; BELNR?: string | number }[] =
           XLSX.utils.sheet_to_json(worksheet);
 
-        return data
-          .map((row) => (row.BELNR ? String(row.BELNR).trim() : null))
-          .filter((belnr): belnr is string => belnr !== null);
+        const filteredAndTyped = data
+          .filter(row => row.EBELN && row.BELNR)
+          .map(row => ({
+            ebeln: String(row.EBELN).trim(),
+            belnr: String(row.BELNR).trim(),
+          }));
+
+        // Sort by BELNR (document number, column H)
+        filteredAndTyped.sort((a, b) => a.belnr.localeCompare(b.belnr, undefined, { numeric: true }));
+        
+        // Return the list of EBELNs (purchase order, column C) in the correct order
+        return filteredAndTyped.map(row => row.ebeln);
       };
 
-      // Step 3: Process PDF to extract BELNR from each page using GenAI
-      const getBelnrToPageMap = async () => {
+      // Step 3: Process PDF to extract EBELN (purchase order number) from each page using GenAI
+      const getEbelnToPageMap = async () => {
         setProgressMessage("Extracting text from PDF...");
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
@@ -165,35 +175,39 @@ export function PdfReorderForm() {
         }
 
         setProgressMessage("Analyzing PDF pages with AI...");
-        const belnrPages = await extractBelnrFromPdfPages({ pdfPages: pageTexts });
+        const ebelnPages = await extractEbelnFromPdfPages({ pdfPages: pageTexts });
 
-        const belnrToPageMap = new Map<string, number>();
-        for (const item of belnrPages) {
-          if (item.belnr) {
-            belnrToPageMap.set(item.belnr.trim(), item.pageNumber);
+        const ebelnToPageMap = new Map<string, number>();
+        for (const item of ebelnPages) {
+          if (item.ebeln) {
+            ebelnToPageMap.set(item.ebeln.trim(), item.pageNumber);
           }
         }
-        return { belnrToPageMap, totalPages: numPages };
+        return { ebelnToPageMap, totalPages: numPages };
       };
 
-      const [orderedBelnrs, { belnrToPageMap, totalPages }] = await Promise.all([
-        getOrderedBelnrs(),
-        getBelnrToPageMap(),
+      const [orderedEbelns, { ebelnToPageMap, totalPages }] = await Promise.all([
+        getOrderedEbelns(),
+        getEbelnToPageMap(),
       ]);
 
       // Step 4: Determine the new page order
       setProgressMessage("Reordering pages...");
       const newPageOrder: number[] = [];
+      const foundPages = new Set<number>();
 
-      for (const belnr of orderedBelnrs) {
-        if (belnrToPageMap.has(belnr)) {
-          newPageOrder.push(belnrToPageMap.get(belnr)!);
+      for (const ebeln of orderedEbelns) {
+        if (ebelnToPageMap.has(ebeln)) {
+          const pageNumber = ebelnToPageMap.get(ebeln)!;
+          if (!foundPages.has(pageNumber)) {
+            newPageOrder.push(pageNumber);
+            foundPages.add(pageNumber);
+          }
         }
       }
       
       const originalPages = Array.from({ length: totalPages }, (_, i) => i + 1);
-      const orderedPagesSet = new Set(newPageOrder);
-      const remainingPages = originalPages.filter(p => !orderedPagesSet.has(p));
+      const remainingPages = originalPages.filter(p => !foundPages.has(p));
       const finalPageOrder = [...newPageOrder, ...remainingPages];
 
 
