@@ -177,15 +177,30 @@ export function PdfReorderForm() {
         setProgressMessage("Analyzing PDF pages with AI...");
         const ebelnPages = await extractEbelnFromPdfPages({ pdfPages: pageTexts });
 
-        // A single purchase order (EBELN) can span multiple pages.
+        // A single purchase order (EBELN) can span multiple pages. 
+        // This logic now correctly groups pages, assuming that a page without an EBELN
+        // belongs to the preceding page that had one.
         const ebelnToPageMap = new Map<string, number[]>();
-        for (const item of ebelnPages) {
-          if (item.ebeln) {
-            const ebelnKey = item.ebeln.trim();
-            if (!ebelnToPageMap.has(ebelnKey)) {
-              ebelnToPageMap.set(ebelnKey, []);
+        let previousEbeln: string | null = null;
+        const sortedEbelnPages = [...ebelnPages].sort((a, b) => a.pageNumber - b.pageNumber);
+
+        for (const item of sortedEbelnPages) {
+          let currentEbeln = item.ebeln ? item.ebeln.trim() : null;
+
+          // If no EBELN is found on the current page, assume it belongs to the previous document.
+          if (!currentEbeln) {
+            currentEbeln = previousEbeln;
+          }
+
+          if (currentEbeln) {
+            if (!ebelnToPageMap.has(currentEbeln)) {
+              ebelnToPageMap.set(currentEbeln, []);
             }
-            ebelnToPageMap.get(ebelnKey)!.push(item.pageNumber);
+            ebelnToPageMap.get(currentEbeln)!.push(item.pageNumber);
+            previousEbeln = currentEbeln;
+          } else {
+            // Reset if a page has no EBELN and there was no previous one to associate with.
+            previousEbeln = null; 
           }
         }
         

@@ -42,6 +42,9 @@ const extractEbelnPrompt = ai.definePrompt({
   prompt: `You are an expert data extraction specialist.
 
   Given the content of each page in a PDF, extract the EBELN value (número de pedido / purchase order) from each page.
+  The EBELN is typically a 10-digit number. Extract only the number, without any surrounding text or labels (like "Pedido N°:").
+  If you find multiple EBELN values on a single page, return only the first one you find.
+  
   Return an array of JSON objects, where each object contains the pageNumber and the extracted ebeln from that page.
   If no EBELN is found on a page, return null for the ebeln value.
 
@@ -53,7 +56,7 @@ const extractEbelnPrompt = ai.definePrompt({
     },
     {
       "pageNumber": 2,
-      "ebeln": "4500018596"
+      "ebeln": null
     }
   ]
 
