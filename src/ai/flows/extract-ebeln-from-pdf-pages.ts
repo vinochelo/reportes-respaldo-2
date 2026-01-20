@@ -1,17 +1,17 @@
 'use server';
 
 /**
- * @fileOverview Extracts the EBELN (purchase order number) value from each page of a PDF.
+ * @fileOverview Groups PDF pages by the EBELN (purchase order number) found on them.
  *
- * - extractEbelnFromPdfPages - A function that handles the extraction process.
- * - ExtractEbelnFromPdfPagesInput - The input type for the extractEbelnFromPdfPages function.
- * - ExtractEbelnFromPdfPagesOutput - The return type for the extractEbelnFromPdfPages function.
+ * - groupPagesByEbeln - A function that handles the page grouping process.
+ * - GroupPagesByEbelnInput - The input type for the groupPagesByEbeln function.
+ * - GroupPagesByEbelnOutput - The return type for the groupPagesByEbeln function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const ExtractEbelnFromPdfPagesInputSchema = z.object({
+const GroupPagesByEbelnInputSchema = z.object({
   pdfPages: z.array(
     z.object({
       pageNumber: z.number().describe('The page number of the PDF.'),
@@ -19,62 +19,65 @@ const ExtractEbelnFromPdfPagesInputSchema = z.object({
     })
   ).describe('An array of PDF pages with their text content and page numbers.'),
 });
-export type ExtractEbelnFromPdfPagesInput = z.infer<typeof ExtractEbelnFromPdfPagesInputSchema>;
+export type GroupPagesByEbelnInput = z.infer<typeof GroupPagesByEbelnInputSchema>;
 
-const ExtractEbelnFromPdfPagesOutputSchema = z.array(
+const GroupPagesByEbelnOutputSchema = z.array(
   z.object({
-    pageNumber: z.number().describe('The page number of the PDF.'),
-    ebeln: z.string().nullable().describe('The EBELN value (número de pedido) extracted from the page.'),
+    ebeln: z.string().describe("The 10-digit EBELN value (número de pedido)."),
+    pageNumbers: z.array(z.number()).describe("An array of page numbers belonging to this EBELN."),
   })
-).describe('An array of page numbers and their corresponding EBELN values.');
-export type ExtractEbelnFromPdfPagesOutput = z.infer<typeof ExtractEbelnFromPdfPagesOutputSchema>;
+).describe("An array of objects where each object represents a document, containing the EBELN and all associated page numbers.");
+export type GroupPagesByEbelnOutput = z.infer<typeof GroupPagesByEbelnOutputSchema>;
 
-export async function extractEbelnFromPdfPages(
-  input: ExtractEbelnFromPdfPagesInput
-): Promise<ExtractEbelnFromPdfPagesOutput> {
-  return extractEbelnFromPdfPagesFlow(input);
+export async function groupPagesByEbeln(
+  input: GroupPagesByEbelnInput
+): Promise<GroupPagesByEbelnOutput> {
+  return groupPagesByEbelnFlow(input);
 }
 
-const extractEbelnPrompt = ai.definePrompt({
-  name: 'extractEbelnPrompt',
-  input: {schema: ExtractEbelnFromPdfPagesInputSchema},
-  output: {schema: ExtractEbelnFromPdfPagesOutputSchema},
-  prompt: `You are an expert data extraction specialist.
+const groupPagesPrompt = ai.definePrompt({
+  name: 'groupPagesPrompt',
+  input: {schema: GroupPagesByEbelnInputSchema},
+  output: {schema: GroupPagesByEbelnOutputSchema},
+  prompt: `You are an expert data extraction specialist. Your task is to group PDF pages by the EBELN (número de pedido / purchase order) found on them.
 
-  Given the content of each page in a PDF, extract the EBELN value (número de pedido / purchase order) from each page.
-  The EBELN is typically a 10-digit number. Extract only the number, without any surrounding text or labels (like "Pedido N°:").
-  If you find multiple EBELN values on a single page, return only the first one you find.
-  
-  Return an array of JSON objects, where each object contains the pageNumber and the extracted ebeln from that page.
-  If no EBELN is found on a page, return null for the ebeln value.
+  - The EBELN is a 10-digit number.
+  - A document for a single EBELN can span multiple pages.
+  - The EBELN is often only printed on the first page of a multi-page document. All subsequent pages belong to that same EBELN until a new EBELN is found.
+  - Extract only the 10-digit number for the ebeln, without any surrounding text or labels.
 
-  Here's an example of the expected output format:
+  Analyze the text from all pages provided. Return an array of objects. Each object must contain:
+  1.  'ebeln': The 10-digit EBELN string.
+  2.  'pageNumbers': An array of all page numbers (as integers) that belong to that EBELN.
+
+  Example of the expected output format:
   [
     {
-      "pageNumber": 1,
-      "ebeln": "4500018595"
+      "ebeln": "4500018595",
+      "pageNumbers": [1, 2, 3]
     },
     {
-      "pageNumber": 2,
-      "ebeln": null
+      "ebeln": "4500018596",
+      "pageNumbers": [4]
     }
   ]
 
-  Here are the PDF pages:
+  Here is the text content from the PDF pages:
   {{#each pdfPages}}
   Page Number: {{{pageNumber}}}
   Page Text: {{{pageText}}}
+  ---
   {{/each}}`,
 });
 
-const extractEbelnFromPdfPagesFlow = ai.defineFlow(
+const groupPagesByEbelnFlow = ai.defineFlow(
   {
-    name: 'extractEbelnFromPdfPagesFlow',
-    inputSchema: ExtractEbelnFromPdfPagesInputSchema,
-    outputSchema: ExtractEbelnFromPdfPagesOutputSchema,
+    name: 'groupPagesByEbelnFlow',
+    inputSchema: GroupPagesByEbelnInputSchema,
+    outputSchema: GroupPagesByEbelnOutputSchema,
   },
   async input => {
-    const {output} = await extractEbelnPrompt(input);
+    const {output} = await groupPagesPrompt(input);
     return output!;
   }
 );

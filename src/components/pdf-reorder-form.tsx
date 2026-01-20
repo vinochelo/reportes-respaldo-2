@@ -18,7 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { extractEbelnFromPdfPages } from "@/ai/flows/extract-ebeln-from-pdf-pages";
+import { groupPagesByEbeln } from "@/ai/flows/extract-ebeln-from-pdf-pages";
 import { cn } from "@/lib/utils";
 
 type Status = "idle" | "processing" | "success" | "error";
@@ -158,7 +158,7 @@ export function PdfReorderForm() {
         return filteredAndTyped;
       };
 
-      // Step 3: Process PDF to extract EBELN (purchase order number) from each page using GenAI
+      // Step 3: Process PDF to group pages by EBELN using GenAI
       const getEbelnToPageMap = async () => {
         setProgressMessage("Extracting text from PDF...");
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
@@ -174,39 +174,17 @@ export function PdfReorderForm() {
           pageTexts.push({ pageNumber: i, pageText });
         }
 
-        setProgressMessage("Analyzing PDF pages with AI...");
-        const ebelnPages = await extractEbelnFromPdfPages({ pdfPages: pageTexts });
+        setProgressMessage("Analyzing and grouping PDF pages with AI...");
+        const ebelnGroups = await groupPagesByEbeln({ pdfPages: pageTexts });
 
-        // A single purchase order (EBELN) can span multiple pages. 
-        // This logic now correctly groups pages, assuming that a page without an EBELN
-        // belongs to the preceding page that had one.
         const ebelnToPageMap = new Map<string, number[]>();
-        let previousEbeln: string | null = null;
-        const sortedEbelnPages = [...ebelnPages].sort((a, b) => a.pageNumber - b.pageNumber);
-
-        for (const item of sortedEbelnPages) {
-          let currentEbeln = item.ebeln ? item.ebeln.trim() : null;
-
-          // If no EBELN is found on the current page, assume it belongs to the previous document.
-          if (!currentEbeln) {
-            currentEbeln = previousEbeln;
-          }
-
-          if (currentEbeln) {
-            if (!ebelnToPageMap.has(currentEbeln)) {
-              ebelnToPageMap.set(currentEbeln, []);
+        for (const group of ebelnGroups) {
+            const ebeln = group.ebeln.trim();
+            if (ebeln) {
+                // The AI returns page numbers, sort them to be safe.
+                const sortedPages = group.pageNumbers.sort((a, b) => a - b);
+                ebelnToPageMap.set(ebeln, sortedPages);
             }
-            ebelnToPageMap.get(currentEbeln)!.push(item.pageNumber);
-            previousEbeln = currentEbeln;
-          } else {
-            // Reset if a page has no EBELN and there was no previous one to associate with.
-            previousEbeln = null; 
-          }
-        }
-        
-        // Sort pages for each purchase order to maintain natural order.
-        for (const pages of ebelnToPageMap.values()) {
-          pages.sort((a, b) => a - b);
         }
 
         return { ebelnToPageMap, totalPages: numPages };
