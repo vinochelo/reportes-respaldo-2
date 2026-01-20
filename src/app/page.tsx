@@ -23,7 +23,7 @@ export default function Home() {
           </p>
         </div>
         <Card className="shadow-lg">
-          <CardContent className="p-6 sm:p-8">
+          <CardContent className="p-8">
             <PdfReorderForm />
           </CardContent>
         </Card>
