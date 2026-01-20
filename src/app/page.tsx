@@ -1,7 +1,16 @@
+"use client";
+
+import * as React from "react";
 import { PdfReorderForm } from '@/components/pdf-reorder-form';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function Home() {
+  const [year, setYear] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    setYear(new Date().getFullYear());
+  }, []);
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-3xl space-y-8">
@@ -19,7 +28,7 @@ export default function Home() {
           </CardContent>
         </Card>
         <footer className="text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} PDF ReOrder. All rights reserved.
+          © {year} PDF ReOrder. All rights reserved.
         </footer>
       </div>
     </div>
