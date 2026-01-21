@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -39,6 +40,15 @@ const FileInput: React.FC<FileInputProps> = ({
   icon,
 }) => {
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    // Si el archivo se borra externamente (p. ej., con un botón de reinicio),
+    // necesitamos borrar el valor del input de archivo. Esto permite al usuario
+    // seleccionar el mismo archivo de nuevo.
+    if (file === null && inputRef.current) {
+      inputRef.current.value = "";
+    }
+  }, [file]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
