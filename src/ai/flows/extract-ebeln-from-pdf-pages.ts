@@ -43,9 +43,13 @@ const extractEbelnPrompt = ai.definePrompt({
   output: {schema: GroupPagesByEbelnOutputSchema},
   prompt: `Tu tarea es agrupar las páginas de un PDF por el número de pedido 'EBELN'.
 
-Extrae el valor exacto de 'EBELN' de cada documento.
-Agrupa todos los números de página que pertenecen a cada 'EBELN'.
-Devuelve un arreglo de objetos JSON con 'ebeln' (string) y 'pageNumbers' (array de números).
+Analiza el texto de las siguientes páginas.
+Extrae el valor exacto de 'EBELN' que encuentres en los documentos.
+Agrupa todos los números de página que pertenecen a cada 'EBELN' único.
+
+Formato de respuesta OBLIGATORIO:
+Devuelve SOLAMENTE un arreglo de objetos JSON. No agregues texto ni explicaciones antes o después del arreglo.
+La estructura debe ser: [{ "ebeln": "string", "pageNumbers": [number] }]
 
 Páginas:
 {{#each pdfPages}}
