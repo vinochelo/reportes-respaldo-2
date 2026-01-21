@@ -23,7 +23,7 @@ export type GroupPagesByEbelnInput = z.infer<typeof GroupPagesByEbelnInputSchema
 
 const GroupPagesByEbelnOutputSchema = z.array(
   z.object({
-    ebeln: z.string().describe("The 10-digit EBELN value (número de pedido)."),
+    ebeln: z.string().describe("The exact EBELN value (número de pedido) as it appears in the document."),
     pageNumbers: z.array(z.number()).describe("An array of page numbers belonging to this EBELN."),
   })
 ).describe("An array of objects where each object represents a document, containing the EBELN and all associated page numbers.");
@@ -39,16 +39,15 @@ const groupPagesPrompt = ai.definePrompt({
   name: 'groupPagesPrompt',
   input: {schema: GroupPagesByEbelnInputSchema},
   output: {schema: GroupPagesByEbelnOutputSchema},
-  prompt: `You are an expert data extraction specialist. Your task is to group PDF pages by the EBELN (número de pedido / purchase order) found on them.
+  prompt: `You are an expert data extraction specialist. Your task is to group PDF pages by the Purchase Order Number (in Spanish: 'número de pedido' or 'EBELN') found on them.
 
-  - The EBELN is a 10-digit number.
-  - A document for a single EBELN can span multiple pages.
-  - The EBELN is often only printed on the first page of a multi-page document. All subsequent pages belong to that same EBELN until a new EBELN is found.
-  - Extract only the 10-digit number for the ebeln, without any surrounding text or labels.
+  - The 'número de pedido' is the key identifier. You must extract it **exactly** as it appears in the text, including any leading zeros. Do not alter or normalize it.
+  - A document for a single 'número de pedido' can span multiple pages.
+  - Often, the 'número de pedido' is only on the first page of a multi-page document. All subsequent pages belong to that same 'número de pedido' until a new one is found on a later page.
 
   Analyze the text from all pages provided. Return an array of objects. Each object must contain:
-  1.  'ebeln': The 10-digit EBELN string.
-  2.  'pageNumbers': An array of all page numbers (as integers) that belong to that EBELN.
+  1.  'ebeln': The exact 'número de pedido' string.
+  2.  'pageNumbers': An array of all page numbers (as integers) that belong to that 'número de pedido'.
 
   Example of the expected output format:
   [
@@ -57,7 +56,7 @@ const groupPagesPrompt = ai.definePrompt({
       "pageNumbers": [1, 2, 3]
     },
     {
-      "ebeln": "4500018596",
+      "ebeln": "004500018596",
       "pageNumbers": [4]
     }
   ]

@@ -140,15 +140,16 @@ export function PdfReorderForm() {
         const workbook = XLSX.read(excelBuffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        // Expects column A "Etiquetas de fila" to be the document number and column B "EBELN" to be the purchase order.
-        const data: { "Etiquetas de fila"?: string | number; EBELN?: string | number }[] =
-          XLSX.utils.sheet_to_json(worksheet);
+        // Convert to array of arrays, ignoring headers. This is more robust.
+        const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
+        // Assumes column A is doc number, column B is EBELN. Skips header row (index 0).
         const filteredAndTyped = data
-          .filter(row => row['Etiquetas de fila'] && row.EBELN)
+          .slice(1) // Skip header row
+          .filter(row => row && row[0] && row[1]) // Ensure both columns have data
           .map(row => ({
-            docNumber: String(row['Etiquetas de fila']).trim(),
-            ebeln: String(row.EBELN).trim(),
+            docNumber: String(row[0]).trim(),
+            ebeln: String(row[1]).trim(),
           }));
 
         // Sort by document number (column A)
