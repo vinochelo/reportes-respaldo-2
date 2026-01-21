@@ -1,11 +1,11 @@
 'use server';
 
 /**
- * @fileOverview Groups PDF pages by the EBELN (purchase order number) found on them.
+ * @fileOverview Agrupa las páginas de un PDF según el EBELN (número de pedido) que se encuentra en ellas.
  *
- * - groupPagesByEbeln - A function that handles the page grouping process.
- * - GroupPagesByEbelnInput - The input type for the groupPagesByEbeln function.
- * - GroupPagesByEbelnOutput - The return type for the groupPagesByEbeln function.
+ * - groupPagesByEbeln - Una función que maneja el proceso de agrupación de páginas.
+ * - GroupPagesByEbelnInput - El tipo de entrada para la función groupPagesByEbeln.
+ * - GroupPagesByEbelnOutput - El tipo de retorno para la función groupPagesByEbeln.
  */
 
 import {ai} from '@/ai/genkit';
@@ -14,19 +14,19 @@ import {z} from 'genkit';
 const GroupPagesByEbelnInputSchema = z.object({
   pdfPages: z.array(
     z.object({
-      pageNumber: z.number().describe('The page number of the PDF.'),
-      pageText: z.string().describe('The text content of the PDF page.'),
+      pageNumber: z.number().describe('El número de página del PDF.'),
+      pageText: z.string().describe('El contenido de texto de la página del PDF.'),
     })
-  ).describe('An array of PDF pages with their text content and page numbers.'),
+  ).describe('Un arreglo de páginas de PDF con su contenido de texto y números de página.'),
 });
 export type GroupPagesByEbelnInput = z.infer<typeof GroupPagesByEbelnInputSchema>;
 
 const GroupPagesByEbelnOutputSchema = z.array(
   z.object({
-    ebeln: z.string().describe("The exact EBELN value (número de pedido) as it appears in the document."),
-    pageNumbers: z.array(z.number()).describe("An array of page numbers belonging to this EBELN."),
+    ebeln: z.string().describe("El valor exacto de EBELN (número de pedido) tal como aparece en el documento."),
+    pageNumbers: z.array(z.number()).describe("Un arreglo de números de página que pertenecen a este EBELN."),
   })
-).describe("An array of objects where each object represents a document, containing the EBELN and all associated page numbers.");
+).describe("Un arreglo de objetos donde cada objeto representa un documento, conteniendo el EBELN y todos los números de página asociados.");
 export type GroupPagesByEbelnOutput = z.infer<typeof GroupPagesByEbelnOutputSchema>;
 
 export async function groupPagesByEbeln(
@@ -35,38 +35,38 @@ export async function groupPagesByEbeln(
   return groupPagesByEbelnFlow(input);
 }
 
-const groupPagesPrompt = ai.definePrompt({
-  name: 'groupPagesPrompt',
+const extractEbelnPrompt = ai.definePrompt({
+  name: 'extractEbelnPrompt',
   input: {schema: GroupPagesByEbelnInputSchema},
   output: {schema: GroupPagesByEbelnOutputSchema},
-  prompt: `You are an expert data extraction specialist. Your task is to group PDF pages by the Purchase Order Number (in Spanish: 'número de pedido' or 'EBELN') found on them.
+  prompt: `Eres un especialista experto en extracción de datos. Tu tarea es agrupar las páginas de un PDF por el Número de Pedido ('número de pedido' o 'EBELN') que se encuentra en ellas.
 
-  - The 'número de pedido' is the key identifier. You must extract it **exactly** as it appears in the text, including any leading zeros. Do not alter or normalize it.
-  - A document for a single 'número de pedido' can span multiple pages.
-  - Often, the 'número de pedido' is only on the first page of a multi-page document. All subsequent pages belong to that same 'número de pedido' until a new one is found on a later page.
+- El 'número de pedido' es el identificador clave. Debes extraerlo **exactamente** como aparece en el texto, incluyendo los ceros iniciales. No lo alteres ni lo normalices.
+- Un documento para un solo 'número de pedido' puede abarcar varias páginas.
+- A menudo, el 'número de pedido' solo se encuentra en la primera página de un documento de varias páginas. Todas las páginas siguientes pertenecen a ese mismo 'número de pedido' hasta que se encuentre uno nuevo en una página posterior.
 
-  Analyze the text from all pages provided. Return an array of objects. Each object must contain:
-  1.  'ebeln': The exact 'número de pedido' string.
-  2.  'pageNumbers': An array of all page numbers (as integers) that belong to that 'número de pedido'.
+Analiza el texto de todas las páginas proporcionadas. Devuelve un arreglo de objetos. Cada objeto debe contener:
+1. 'ebeln': El string exacto del 'número de pedido'.
+2. 'pageNumbers': Un arreglo de todos los números de página (como enteros) que pertenecen a ese 'número de pedido'.
 
-  Example of the expected output format:
-  [
-    {
-      "ebeln": "4500018595",
-      "pageNumbers": [1, 2, 3]
-    },
-    {
-      "ebeln": "004500018596",
-      "pageNumbers": [4]
-    }
-  ]
+Ejemplo del formato de salida esperado:
+[
+  {
+    "ebeln": "4500018595",
+    "pageNumbers": [1, 2, 3]
+  },
+  {
+    "ebeln": "004500018596",
+    "pageNumbers": [4]
+  }
+]
 
-  Here is the text content from the PDF pages:
-  {{#each pdfPages}}
-  Page Number: {{{pageNumber}}}
-  Page Text: {{{pageText}}}
-  ---
-  {{/each}}`,
+Aquí está el contenido de texto de las páginas del PDF:
+{{#each pdfPages}}
+Número de Página: {{{pageNumber}}}
+Texto de la Página: {{{pageText}}}
+---
+{{/each}}`,
 });
 
 const groupPagesByEbelnFlow = ai.defineFlow(
@@ -76,7 +76,7 @@ const groupPagesByEbelnFlow = ai.defineFlow(
     outputSchema: GroupPagesByEbelnOutputSchema,
   },
   async input => {
-    const {output} = await groupPagesPrompt(input);
+    const {output} = await extractEbelnPrompt(input);
     return output!;
   }
 );

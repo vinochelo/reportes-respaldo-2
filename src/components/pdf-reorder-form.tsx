@@ -81,7 +81,7 @@ const FileInput: React.FC<FileInputProps> = ({
             className="mt-2 text-destructive hover:text-destructive h-auto px-2 py-1"
             onClick={handleRemoveFile}
           >
-            <X className="mr-1 h-3 w-3" /> Remove
+            <X className="mr-1 h-3 w-3" /> Quitar
           </Button>
         </div>
       ) : (
@@ -120,8 +120,8 @@ export function PdfReorderForm() {
     if (!pdfFile || !excelFile) {
       toast({
         variant: "destructive",
-        title: "Missing Files",
-        description: "Please upload both a PDF and an Excel file.",
+        title: "Archivos Faltantes",
+        description: "Por favor, sube un archivo PDF y un archivo de Excel.",
       });
       return;
     }
@@ -130,13 +130,13 @@ export function PdfReorderForm() {
 
     try {
       // Step 1: Read files into memory
-      setProgressMessage("Reading files...");
+      setProgressMessage("Leyendo archivos...");
       const pdfBuffer = await pdfFile.arrayBuffer();
       const excelBuffer = await excelFile.arrayBuffer();
 
       // Step 2: Process Excel to get the desired order
       const getOrderedRows = async () => {
-        setProgressMessage("Parsing Excel file...");
+        setProgressMessage("Procesando archivo de Excel...");
         const workbook = XLSX.read(excelBuffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
@@ -161,7 +161,7 @@ export function PdfReorderForm() {
 
       // Step 3: Process PDF to group pages by EBELN using GenAI
       const getEbelnToPageMap = async () => {
-        setProgressMessage("Extracting text from PDF...");
+        setProgressMessage("Extrayendo texto del PDF...");
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
         const pageTexts: { pageNumber: number; pageText: string }[] = [];
@@ -175,7 +175,7 @@ export function PdfReorderForm() {
           pageTexts.push({ pageNumber: i, pageText });
         }
 
-        setProgressMessage("Analyzing and grouping PDF pages with AI...");
+        setProgressMessage("Analizando y agrupando páginas del PDF con IA...");
         const ebelnGroups = await groupPagesByEbeln({ pdfPages: pageTexts });
 
         const ebelnToPageMap = new Map<string, number[]>();
@@ -197,13 +197,13 @@ export function PdfReorderForm() {
       ]);
 
       // Step 4: Determine the new page order
-      setProgressMessage("Reordering pages...");
+      setProgressMessage("Reordenando páginas...");
       const newPageOrder: number[] = [];
       const foundPages = new Set<number>();
 
       for (const row of orderedRows) {
         const ebeln = row.ebeln;
-        if (ebelnToPageMap.has(ebeln)) {
+        if (ebelnToPagePageMap.has(ebeln)) {
           const pageNumbers = ebelnToPageMap.get(ebeln)!;
           for (const pageNumber of pageNumbers) {
             if (!foundPages.has(pageNumber)) {
@@ -220,7 +220,7 @@ export function PdfReorderForm() {
 
 
       // Step 5: Create the new PDF
-      setProgressMessage("Generating new PDF...");
+      setProgressMessage("Generando nuevo PDF...");
       const originalPdfDoc = await PDFDocument.load(pdfBuffer);
       const newPdfDoc = await PDFDocument.create();
 
@@ -240,9 +240,9 @@ export function PdfReorderForm() {
       setStatus("error");
       toast({
         variant: "destructive",
-        title: "An Error Occurred",
+        title: "Ocurrió un Error",
         description:
-          error instanceof Error ? error.message : "Failed to reorder PDF. Please check your files and try again.",
+          error instanceof Error ? error.message : "No se pudo reordenar el PDF. Por favor, revisa tus archivos e inténtalo de nuevo.",
       });
     }
   };
@@ -258,14 +258,14 @@ export function PdfReorderForm() {
         <FileInput
           file={pdfFile}
           onFileChange={setPdfFile}
-          placeholder="Upload PDF Document"
+          placeholder="Subir Documento PDF"
           accept=".pdf"
           icon={<FileText className="h-12 w-12" />}
         />
         <FileInput
           file={excelFile}
           onFileChange={setExcelFile}
-          placeholder="Upload Excel Sheet"
+          placeholder="Subir Hoja de Excel"
           accept=".xlsx, .xls"
           icon={<FileSpreadsheet className="h-12 w-12" />}
         />
@@ -278,7 +278,7 @@ export function PdfReorderForm() {
             onClick={handleReorder}
             disabled={!pdfFile || !excelFile}
           >
-            Reorder PDF <ArrowRight className="ml-2 h-4 w-4" />
+            Reordenar PDF <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         )}
 
@@ -292,17 +292,17 @@ export function PdfReorderForm() {
         {isSuccess && (
           <div className="text-center space-y-4">
             <PartyPopper className="mx-auto h-12 w-12 text-green-500" />
-            <h3 className="text-2xl font-bold">Reordering Complete!</h3>
-            <p className="text-muted-foreground">Your new PDF is ready for download.</p>
+            <h3 className="text-2xl font-bold">¡Reordenamiento Completo!</h3>
+            <p className="text-muted-foreground">Tu nuevo PDF está listo para descargar.</p>
             <div className="flex justify-center gap-4">
                <Button size="lg" asChild>
-                <a href={downloadUrl!} download="reordered_document.pdf">
+                <a href={downloadUrl!} download="documento_reordenado.pdf">
                   <Download className="mr-2 h-4 w-4" />
-                  Download PDF
+                  Descargar PDF
                 </a>
               </Button>
               <Button size="lg" variant="outline" onClick={resetState}>
-                Start Over
+                Empezar de Nuevo
               </Button>
             </div>
           </div>
@@ -310,11 +310,11 @@ export function PdfReorderForm() {
 
         {isError && (
           <div className="text-center space-y-4">
-             <h3 className="text-2xl font-bold text-destructive">Oops! Something went wrong.</h3>
-             <p className="text-muted-foreground">We couldn't reorder your PDF. Please try again.</p>
+             <h3 className="text-2xl font-bold text-destructive">¡Uy! Algo salió mal.</h3>
+             <p className="text-muted-foreground">No pudimos reordenar tu PDF. Por favor, inténtalo de nuevo.</p>
              <Button size="lg" onClick={resetState}>
                <RefreshCw className="mr-2 h-4 w-4" />
-               Try Again
+               Intentar de Nuevo
              </Button>
           </div>
         )}

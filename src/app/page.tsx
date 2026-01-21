@@ -16,10 +16,10 @@ export default function Home() {
       <div className="mx-auto w-full max-w-3xl space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            PDF ReOrder
+            Reordenador Reportes
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Effortlessly reorder your PDF pages using an Excel file. Upload, process, and download in seconds.
+            Reordena sin esfuerzo las páginas de tus PDF usando un archivo de Excel. Sube, procesa y descarga en segundos.
           </p>
         </div>
         <Card className="shadow-lg">
@@ -29,7 +29,7 @@ export default function Home() {
         </Card>
         {year && (
           <footer className="text-center text-sm text-muted-foreground">
-            © {year} PDF ReOrder. All rights reserved.
+            © {year} Reordenador Reportes. Todos los derechos reservados.
           </footer>
         )}
       </div>

@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'PDF ReOrder',
-  description: 'Reorder PDF pages based on an Excel file.',
+  title: 'Reordenador Reportes',
+  description: 'Reordena las páginas de tus reportes PDF usando un archivo de Excel.',
 };
 
 export default function RootLayout({
@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es" suppressHydrationWarning>
       <head />
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         {children}
