@@ -37,35 +37,16 @@ export async function groupPagesByEbeln(
 
 const extractEbelnPrompt = ai.definePrompt({
   name: 'extractEbelnPrompt',
-  model: 'gemini-2.5-flash-lite',
+  model: 'gemini-2.5-flash',
   input: {schema: GroupPagesByEbelnInputSchema},
   output: {schema: GroupPagesByEbelnOutputSchema},
-  prompt: `Eres un especialista experto en extracción de datos. Tu tarea es agrupar las páginas de un PDF por el Número de Pedido ('número de pedido' o 'EBELN') que se encuentra en ellas.
+  prompt: `Tu tarea es agrupar páginas de PDF por el 'EBELN' (número de pedido). Extrae el EBELN exacto. Agrupa los números de página para cada EBELN. Un documento puede tener varias páginas. El EBELN puede estar solo en la primera página del documento.
 
-- El 'número de pedido' es el identificador clave. Debes extraerlo **exactamente** como aparece en el texto, incluyendo los ceros iniciales. No lo alteres ni lo normalices.
-- Un documento para un solo 'número de pedido' puede abarcar varias páginas.
-- A menudo, el 'número de pedido' solo se encuentra en la primera página de un documento de varias páginas. Todas las páginas siguientes pertenecen a ese mismo 'número de pedido' hasta que se encuentre uno nuevo en una página posterior.
+Devuelve un arreglo de objetos JSON con 'ebeln' (string) y 'pageNumbers' (array de números).
 
-Analiza el texto de todas las páginas proporcionadas. Devuelve un arreglo de objetos. Cada objeto debe contener:
-1. 'ebeln': El string exacto del 'número de pedido'.
-2. 'pageNumbers': Un arreglo de todos los números de página (como enteros) que pertenecen a ese 'número de pedido'.
-
-Ejemplo del formato de salida esperado:
-[
-  {
-    "ebeln": "4500018595",
-    "pageNumbers": [1, 2, 3]
-  },
-  {
-    "ebeln": "004500018596",
-    "pageNumbers": [4]
-  }
-]
-
-Aquí está el contenido de texto de las páginas del PDF:
+Texto de las páginas:
 {{#each pdfPages}}
-Número de Página: {{{pageNumber}}}
-Texto de la Página: {{{pageText}}}
+Página {{{pageNumber}}}: {{{pageText}}}
 ---
 {{/each}}`,
 });
