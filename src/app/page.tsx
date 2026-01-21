@@ -15,11 +15,11 @@ export default function Home() {
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-3xl space-y-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Reordenador Reportes
+          <h1 className="text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl">
+            <span className="font-light">ETAFASHION</span> <span className="text-destructive">RM</span>
           </h1>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Reordena sin esfuerzo las páginas de tus PDF usando un archivo de Excel. Sube, procesa y descarga en segundos.
+          <p className="mt-4 text-xl text-muted-foreground">
+            Reordenador de Reportes
           </p>
         </div>
         <Card className="shadow-lg">
@@ -29,7 +29,7 @@ export default function Home() {
         </Card>
         {year && (
           <footer className="text-center text-sm text-muted-foreground">
-            © {year} Reordenador Reportes. Todos los derechos reservados.
+            © {year} Etafashion RM. Todos los derechos reservados.
           </footer>
         )}
       </div>
