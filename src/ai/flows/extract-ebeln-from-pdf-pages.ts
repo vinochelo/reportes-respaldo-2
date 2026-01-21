@@ -37,14 +37,16 @@ export async function groupPagesByEbeln(
 
 const extractEbelnPrompt = ai.definePrompt({
   name: 'extractEbelnPrompt',
-  model: 'gemini-2.5-flash',
+  model: 'gemini-2.0-flash',
   input: {schema: GroupPagesByEbelnInputSchema},
   output: {schema: GroupPagesByEbelnOutputSchema},
-  prompt: `Tu tarea es agrupar páginas de PDF por el 'EBELN' (número de pedido). Extrae el EBELN exacto. Agrupa los números de página para cada EBELN. Un documento puede tener varias páginas. El EBELN puede estar solo en la primera página del documento.
+  prompt: `Tu tarea es agrupar las páginas de un PDF por el número de pedido 'EBELN'.
 
+Extrae el valor exacto de 'EBELN' de cada documento.
+Agrupa todos los números de página que pertenecen a cada 'EBELN'.
 Devuelve un arreglo de objetos JSON con 'ebeln' (string) y 'pageNumbers' (array de números).
 
-Texto de las páginas:
+Páginas:
 {{#each pdfPages}}
 Página {{{pageNumber}}}: {{{pageText}}}
 ---
