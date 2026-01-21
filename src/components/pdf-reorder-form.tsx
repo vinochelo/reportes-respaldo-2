@@ -203,7 +203,7 @@ export function PdfReorderForm() {
 
       for (const row of orderedRows) {
         const ebeln = row.ebeln;
-        if (ebelnToPagePageMap.has(ebeln)) {
+        if (ebelnToPageMap.has(ebeln)) {
           const pageNumbers = ebelnToPageMap.get(ebeln)!;
           for (const pageNumber of pageNumbers) {
             if (!foundPages.has(pageNumber)) {
