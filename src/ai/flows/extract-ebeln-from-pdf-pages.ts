@@ -39,7 +39,6 @@ const extractEbelnPrompt = ai.definePrompt({
   name: 'extractEbelnPrompt',
   input: {schema: GroupPagesByEbelnInputSchema},
   output: {schema: GroupPagesByEbelnOutputSchema},
-  model: 'googleai/gemini-pro',
   prompt: `Eres un especialista experto en extracción de datos. Tu tarea es agrupar las páginas de un PDF por el Número de Pedido ('número de pedido' o 'EBELN') que se encuentra en ellas.
 
 - El 'número de pedido' es el identificador clave. Debes extraerlo **exactamente** como aparece en el texto, incluyendo los ceros iniciales. No lo alteres ni lo normalices.
