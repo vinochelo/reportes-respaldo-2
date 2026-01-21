@@ -37,7 +37,6 @@ export async function groupPagesByEbeln(
 
 const extractEbelnPrompt = ai.definePrompt({
   name: 'extractEbelnPrompt',
-  model: 'gemini-pro',
   input: {schema: GroupPagesByEbelnInputSchema},
   output: {schema: GroupPagesByEbelnOutputSchema},
   prompt: `Tu tarea es agrupar las páginas de un PDF por el número de pedido 'EBELN'.
