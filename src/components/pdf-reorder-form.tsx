@@ -14,8 +14,15 @@ import {
   PartyPopper,
   ArrowRight,
   RefreshCw,
+  HelpCircle,
 } from "lucide-react";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -123,9 +130,7 @@ export function PdfReorderForm() {
   
   const normalizeEbeln = (ebeln: string | number) => {
     if (!ebeln) return '';
-    // Removes spaces, dashes, and other symbols, making matching more reliable.
-    // e.g., "PO-123 45" becomes "PO12345"
-    return String(ebeln).replace(/[^a-zA-Z0-9]/g, '');
+    return String(ebeln).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
   };
 
   const handleReorder = async () => {
@@ -224,7 +229,7 @@ export function PdfReorderForm() {
           return { ebelnToPageMap, totalPages: numPages };
         } catch (aiError) {
           console.error("AI feature failed:", aiError);
-          throw new Error("La función de IA falló. Esto podría deberse a un problema de configuración en tu proyecto de Google Cloud (API no habilitada, etc.).");
+          throw new Error("La función de IA falló. Esto suele deberse a un problema de configuración en tu proyecto de Google Cloud (la API de IA puede no estar habilitada o la facturación no está activa). Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo.");
         }
       };
 
@@ -365,6 +370,38 @@ export function PdfReorderForm() {
              </Button>
           </div>
         )}
+      </div>
+
+      <div className="pt-4 border-t">
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="item-1">
+            <AccordionTrigger>
+              <div className="flex items-center gap-2 font-semibold">
+                <HelpCircle className="h-5 w-5" />
+                ¿Cómo funciona el proceso?
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <ol className="list-decimal space-y-2 pl-6 text-sm text-muted-foreground">
+                <li>
+                  <strong>Lectura de Archivos:</strong> La aplicación lee el archivo Excel para obtener la lista ordenada de números de pedido y extrae el texto de cada página del PDF.
+                </li>
+                <li>
+                  <strong>Consulta con IA (página por página):</strong> Para cada página del PDF, se envía el texto extraído al modelo de IA <code>gemini-flash</code> con una simple pregunta: "¿Cuál es el número de pedido en este texto?".
+                </li>
+                <li>
+                  <strong>Mapeo de Páginas:</strong> El sistema crea un "mapa" que asocia cada número de pedido con las páginas donde fue encontrado por la IA.
+                </li>
+                <li>
+                  <strong>Reordenamiento:</strong> Usando la lista del Excel como guía, la aplicación organiza las páginas del PDF en el orden correcto. Las páginas sin un número de pedido del Excel se mueven al final.
+                </li>
+                <li>
+                  <strong>Generación del Nuevo PDF:</strong> Finalmente, se crea un nuevo archivo PDF con las páginas reordenadas, listo para que lo descargues.
+                </li>
+              </ol>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </div>
   );
