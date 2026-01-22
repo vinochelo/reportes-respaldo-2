@@ -187,10 +187,16 @@ export function PdfReorderForm() {
 
         setProgressMessage("Analizando páginas del PDF con IA...");
         
-        const ebelnExtractionPromises = pageTexts.map(text => 
-            extractEbelnFromPage({ pageText: text })
-        );
-        const ebelnResults = await Promise.all(ebelnExtractionPromises);
+        let ebelnResults;
+        try {
+          const ebelnExtractionPromises = pageTexts.map(text => 
+              extractEbelnFromPage({ pageText: text })
+          );
+          ebelnResults = await Promise.all(ebelnExtractionPromises);
+        } catch (aiError) {
+          console.error("AI feature failed:", aiError);
+          throw new Error("La función de IA falló. Esto suele deberse a un problema de configuración en tu proyecto de Google Cloud (la API de IA puede no estar habilitada o la facturación no está activa). Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo.");
+        }
         
         const ebelnToPageMap = new Map<string, number[]>();
         ebelnResults.forEach((result, index) => {
