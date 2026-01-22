@@ -192,16 +192,24 @@ export function PdfReorderForm() {
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
 
-        const pageTextPromises = [];
+        const pagePromises = [];
         for (let i = 1; i <= numPages; i++) {
-          pageTextPromises.push(
-            pdfDoc.getPage(i).then(page => page.getTextContent())
-          );
+          pagePromises.push(pdfDoc.getPage(i));
         }
-        const textContents = await Promise.all(pageTextPromises);
-        const pageTexts = textContents.map(textContent => 
-          textContent.items.map(item => ("str" in item ? item.str : "")).join(" ")
-        );
+        const pages = await Promise.all(pagePromises);
+        
+        const pageTextPromises = pages.map(page => {
+          const viewport = page.getViewport({ scale: 1 });
+          const topRegionThreshold = viewport.height * 0.75; // Only consider text in the top 25% of the page
+          return page.getTextContent().then(textContent => {
+            return textContent.items
+              .filter(item => "str" in item && item.transform[5] >= topRegionThreshold)
+              .map(item => ("str" in item ? item.str : ""))
+              .join(" ");
+          });
+        });
+
+        const pageTexts = await Promise.all(pageTextPromises);
 
         setProgressMessage("Analizando páginas del PDF con IA...");
         
@@ -384,16 +392,13 @@ export function PdfReorderForm() {
             <AccordionContent>
               <ol className="list-decimal space-y-2 pl-6 text-sm text-muted-foreground">
                 <li>
-                  <strong>Lectura de Archivos:</strong> La aplicación lee el archivo Excel para obtener la lista ordenada de números de pedido y extrae el texto de cada página del PDF.
+                  <strong>Lectura de Excel:</strong> La aplicación lee tu archivo Excel para obtener la lista y el orden deseado de los números de pedido.
                 </li>
                 <li>
-                  <strong>Consulta con IA (página por página):</strong> Para cada página del PDF, se envía el texto extraído al modelo de IA <code>gemini-flash</code> con una simple pregunta: "¿Cuál es el número de pedido en este texto?".
+                  <strong>Extracción Optimizada y Consulta con IA:</strong> Para cada página del PDF, la aplicación inteligentemente extrae texto solo de la <strong>parte superior</strong>, donde suele estar el número de pedido. Este pequeño fragmento se envía al modelo de IA <code>gemini-flash</code> con una pregunta simple: "¿Cuál es el número de pedido aquí?". Este método es mucho más rápido y eficiente.
                 </li>
                 <li>
-                  <strong>Mapeo de Páginas:</strong> El sistema crea un "mapa" que asocia cada número de pedido con las páginas donde fue encontrado por la IA.
-                </li>
-                <li>
-                  <strong>Reordenamiento:</strong> Usando la lista del Excel como guía, la aplicación organiza las páginas del PDF en el orden correcto. Las páginas sin un número de pedido del Excel se mueven al final.
+                  <strong>Mapeo y Reordenamiento:</strong> El sistema asocia cada número de pedido con su página correspondiente. Luego, usa tu lista de Excel como guía para crear el nuevo orden. Las páginas que no coincidan se mueven al final.
                 </li>
                 <li>
                   <strong>Generación del Nuevo PDF:</strong> Finalmente, se crea un nuevo archivo PDF con las páginas reordenadas, listo para que lo descargues.
