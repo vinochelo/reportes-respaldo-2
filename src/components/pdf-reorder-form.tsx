@@ -192,16 +192,8 @@ export function PdfReorderForm() {
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
         const ebelnToPageMap = new Map<string, number[]>();
-        
-        // The API has a rate limit of 20 requests per minute.
-        // We will add a delay between each request to stay under the limit.
-        const DELAY_BETWEEN_REQUESTS_MS = 4000;
 
         for (let i = 1; i <= numPages; i++) {
-          // Always wait before making a request to avoid bursting the rate limit,
-          // especially when retrying after a failure.
-          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_REQUESTS_MS));
-
           setProgressMessage(`Analizando página ${i} de ${numPages}...`);
           
           const page = await pdfDoc.getPage(i);
@@ -230,9 +222,6 @@ export function PdfReorderForm() {
             }
           } catch (aiError) {
             console.error("AI feature failed:", aiError);
-            if (aiError instanceof Error && aiError.message.includes('RESOURCE_EXHAUSTED')) {
-                throw new Error("Se ha alcanzado el límite de uso de la IA (cuota). Por favor, espera a que se reinicie (usualmente diario) o revisa el plan de facturación de tu proyecto en Google Cloud.");
-            }
             throw new Error(
               aiError instanceof Error ? aiError.message : "La función de IA falló. Esto podría deberse a un problema de configuración en tu proyecto de Google Cloud. Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo."
             );
