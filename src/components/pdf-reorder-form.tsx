@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -19,7 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { groupPagesByEbeln } from "@/ai/flows/extract-ebeln-from-pdf-pages";
+import { extractEbelnFromPage } from "@/ai/flows/extract-ebeln-from-pdf-pages";
 import { cn } from "@/lib/utils";
 
 type Status = "idle" | "processing" | "success" | "error";
@@ -174,28 +173,40 @@ export function PdfReorderForm() {
         setProgressMessage("Extrayendo texto del PDF...");
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
-        const pageTexts: { pageNumber: number; pageText: string }[] = [];
 
+        const pageTextPromises = [];
         for (let i = 1; i <= numPages; i++) {
-          const page = await pdfDoc.getPage(i);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items
-            .map((item) => ("str" in item ? item.str : ""))
-            .join(" ");
-          pageTexts.push({ pageNumber: i, pageText });
+          pageTextPromises.push(
+            pdfDoc.getPage(i).then(page => page.getTextContent())
+          );
         }
+        const textContents = await Promise.all(pageTextPromises);
+        const pageTexts = textContents.map(textContent => 
+          textContent.items.map(item => ("str" in item ? item.str : "")).join(" ")
+        );
 
-        setProgressMessage("Analizando y agrupando páginas del PDF con IA...");
-        const ebelnGroups = await groupPagesByEbeln({ pdfPages: pageTexts });
-
+        setProgressMessage("Analizando páginas del PDF con IA...");
+        
+        const ebelnExtractionPromises = pageTexts.map(text => 
+            extractEbelnFromPage({ pageText: text })
+        );
+        const ebelnResults = await Promise.all(ebelnExtractionPromises);
+        
         const ebelnToPageMap = new Map<string, number[]>();
-        for (const group of ebelnGroups) {
-            const ebeln = group.ebeln.trim();
-            if (ebeln) {
-                // The AI returns page numbers, sort them to be safe.
-                const sortedPages = group.pageNumbers.sort((a, b) => a - b);
-                ebelnToPageMap.set(ebeln, sortedPages);
+        ebelnResults.forEach((result, index) => {
+            const pageNumber = index + 1; // page numbers are 1-based
+            if (result && result.ebeln) {
+                const ebeln = result.ebeln.trim();
+                if (!ebelnToPageMap.has(ebeln)) {
+                    ebelnToPageMap.set(ebeln, []);
+                }
+                ebelnToPageMap.get(ebeln)!.push(pageNumber);
             }
+        });
+        
+        // Sort page numbers within each EBELN group to ensure they are in order
+        for (const pages of ebelnToPageMap.values()) {
+            pages.sort((a, b) => a - b);
         }
 
         return { ebelnToPageMap, totalPages: numPages };
