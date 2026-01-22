@@ -31,14 +31,15 @@ export async function extractEbelnFromPage(
 
 const extractEbelnPrompt = ai.definePrompt({
   name: 'extractEbelnFromPagePrompt',
-  model: 'gemini-1.0-pro',
+  model: 'gemini-pro',
   input: {schema: ExtractEbelnFromPageInputSchema},
   output: {schema: ExtractEbelnFromPageOutputSchema},
-  prompt: `Tu tarea es encontrar y extraer el número de pedido 'EBELN' del siguiente texto.
-El valor de EBELN es un número.
-Analiza el texto y encuentra el valor asociado con la etiqueta 'EBELN'.
-Si encuentras un valor para EBELN, devuélvelo como un string. Si no encuentras ningún valor de EBELN, devuelve null.
-Devuelve SÓLO el JSON. No incluyas texto antes o después.
+  prompt: `Tu única tarea es encontrar y extraer el número de pedido 'EBELN' del siguiente texto.
+El valor de EBELN es siempre un número de 10 dígitos.
+Analiza el texto y encuentra el valor numérico asociado a la etiqueta 'EBELN'.
+- Si encuentras un valor para EBELN, devuélvelo como un string.
+- Si no encuentras ningún valor de EBELN, devuelve null.
+- Tu respuesta DEBE ser únicamente un objeto JSON válido, nada más. No incluyas 'json' ni \`\`\` al principio o al final.
 
 Texto de la página:
 {{{pageText}}}
