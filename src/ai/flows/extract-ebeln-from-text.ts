@@ -24,7 +24,7 @@ const extractEbelnFlow = ai.defineFlow(
     outputSchema: EbelnOutputSchema,
   },
   async input => {
-    const modelToTry = 'gemini-pro';
+    const modelToTry = 'gemini-flash';
 
     const promptText = `From the following text, find the purchase order number. It may be labeled as "EBELN", "Pedido", "Orden de Compra", "Purchase Order", "PO No", or "PO #".
 
