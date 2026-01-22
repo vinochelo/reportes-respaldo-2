@@ -26,8 +26,11 @@ const extractEbelnPrompt = ai.definePrompt({
   name: 'extractEbelnPrompt',
   model: googleAI.model('gemini-flash'),
   input: {schema: ExtractEbelnInputSchema},
-  output: {schema: ExtractEbelnOutputSchema},
-  prompt: `You are an expert at finding purchase order numbers in document text. The purchase order number is often labeled as "Pedido", "EBELN", "PO No.", or "Orden de Compra". It can be a purely numeric value (like 4500123456) or alphanumeric. Find the purchase order number in the following text and return it. If no number is found, return null.
+  prompt: `You are an expert at finding purchase order numbers in document text. The purchase order number is often labeled as "Pedido", "EBELN", "PO No.", or "Orden de Compra". It can be a purely numeric value (like 4500123456) or alphanumeric. Find the purchase order number in the following text.
+
+Respond with a valid JSON object with a single key "ebeln". The value should be the purchase order number as a string, or null if no number is found. Do not include any other text or markdown formatting in your response.
+
+Example response: {"ebeln": "4500123456"}
 
 Text:
 \'\'\'
@@ -42,8 +45,19 @@ const extractEbelnFlow = ai.defineFlow(
     outputSchema: ExtractEbelnOutputSchema,
   },
   async input => {
-    const {output} = await extractEbelnPrompt(input);
-    return output!;
+    const response = await extractEbelnPrompt(input);
+    const textOutput = response.text.trim();
+    try {
+      // The model may wrap the JSON in markdown backticks.
+      const jsonText = textOutput.replace(/^```json\n?/, '').replace(/```$/, '');
+      const parsed = JSON.parse(jsonText);
+      // Validate the parsed object against our schema.
+      return ExtractEbelnOutputSchema.parse(parsed);
+    } catch (e) {
+      console.error("Failed to parse AI JSON response:", textOutput, e);
+      // Let the calling function handle the error display.
+      throw new Error("AI returned an invalid response format.");
+    }
   }
 );
 
