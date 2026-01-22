@@ -191,39 +191,33 @@ export function PdfReorderForm() {
         setProgressMessage("Analizando páginas del PDF...");
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
-
         const ebelnToPageMap = new Map<string, number[]>();
+        
+        for (let i = 1; i <= numPages; i++) {
+          const page = await pdfDoc.getPage(i);
+          
+          const viewport = page.getViewport({ scale: 1 });
+          // Only analyze the top 30% of the page as an optimization.
+          const topRegionThreshold = viewport.height * 0.70; 
+          
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .filter(item => "str" in item && item.transform[5] >= topRegionThreshold)
+            .map(item => ("str" in item ? item.str : ""))
+            .join(" ");
 
-        try {
-          for (let i = 1; i <= numPages; i++) {
-            const page = await pdfDoc.getPage(i);
-            
-            const viewport = page.getViewport({ scale: 1 });
-            // Only analyze the top 30% of the page as an optimization.
-            const topRegionThreshold = viewport.height * 0.70; 
-            
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items
-              .filter(item => "str" in item && item.transform[5] >= topRegionThreshold)
-              .map(item => ("str" in item ? item.str : ""))
-              .join(" ");
+          if (pageText.trim() === "") continue;
 
-            if (pageText.trim() === "") continue;
+          // Call the AI flow for each page
+          const { ebeln } = await extractEbeln({ pageText });
 
-            // Call the AI flow for each page
-            const { ebeln } = await extractEbeln({ pageText });
-
-            if (ebeln && ebeln.trim() !== "") {
-              const normalizedEbeln = normalizeEbeln(ebeln);
-              if (!ebelnToPageMap.has(normalizedEbeln)) {
-                ebelnToPageMap.set(normalizedEbeln, []);
-              }
-              ebelnToPageMap.get(normalizedEbeln)!.push(i);
+          if (ebeln && ebeln.trim() !== "") {
+            const normalizedEbeln = normalizeEbeln(ebeln);
+            if (!ebelnToPageMap.has(normalizedEbeln)) {
+              ebelnToPageMap.set(normalizedEbeln, []);
             }
+            ebelnToPageMap.get(normalizedEbeln)!.push(i);
           }
-        } catch (aiError) {
-          console.error("AI feature failed:", aiError);
-          throw new Error("La función de IA falló. Esto suele deberse a un problema de configuración en tu proyecto de Google Cloud (la API de IA puede no estar habilitada o la facturación no está activa). Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo.");
         }
         
         for (const pages of ebelnToPageMap.values()) {
