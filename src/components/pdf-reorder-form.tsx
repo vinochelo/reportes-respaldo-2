@@ -148,23 +148,33 @@ export function PdfReorderForm() {
         const workbook = XLSX.read(excelBuffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        // Convert to array of arrays, ignoring headers. This is more robust.
         const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        // Assumes column A is doc number, column B is EBELN. Skips header row (index 0).
-        const filteredAndTyped = data
-          .slice(1) // Skip header row
-          .filter(row => row && row[0] && row[1]) // Ensure both columns have data
-          .map(row => ({
-            docNumber: String(row[0]).trim(),
-            ebeln: String(row[1]).trim(),
-          }));
+        const dataRows = data.slice(1).filter(row => Array.isArray(row) && row.length > 0 && row.some(cell => cell !== null && String(cell).trim() !== ''));
 
-        // Sort by document number (column A)
-        filteredAndTyped.sort((a, b) => a.docNumber.localeCompare(b.docNumber, undefined, { numeric: true }));
+        if (dataRows.length === 0) return [];
         
-        // Return the full sorted list of objects
-        return filteredAndTyped;
+        const useSecondColumn = dataRows.some(row => row[1] !== undefined && row[1] !== null && String(row[1]).trim() !== '');
+        
+        let unsortedRows;
+        if (useSecondColumn) {
+          unsortedRows = dataRows
+            .filter(row => row && row[0] && row[1])
+            .map(row => ({
+              docNumber: String(row[0]).trim(),
+              ebeln: String(row[1]).trim(),
+            }));
+          unsortedRows.sort((a, b) => a.docNumber.localeCompare(b.docNumber, undefined, { numeric: true }));
+        } else {
+          unsortedRows = dataRows
+            .filter(row => row && row[0])
+            .map((row, index) => ({
+              docNumber: String(index + 1),
+              ebeln: String(row[0]).trim(),
+            }));
+        }
+        
+        return unsortedRows;
       };
 
       // Step 3: Process PDF to group pages by EBELN using Regex
@@ -186,7 +196,7 @@ export function PdfReorderForm() {
 
         setProgressMessage("Analizando páginas del PDF...");
         
-        const ebelnRegex = /EBELN\s*:?\s*(\d{10})/i;
+        const ebelnRegex = /EBELN\s*:?\s*(\d+)/i;
         const ebelnToPageMap = new Map<string, number[]>();
 
         pageTexts.forEach((text, index) => {
@@ -201,7 +211,6 @@ export function PdfReorderForm() {
           }
         });
         
-        // Sort page numbers within each EBELN group to ensure they are in order
         for (const pages of ebelnToPageMap.values()) {
             pages.sort((a, b) => a - b);
         }
