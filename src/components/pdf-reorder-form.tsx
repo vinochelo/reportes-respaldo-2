@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { extractEbeln } from "@/ai/flows/extract-ebeln-from-text";
 
 type Status = "idle" | "processing" | "success" | "error";
 
@@ -120,12 +121,11 @@ export function PdfReorderForm() {
     setDownloadUrl(null);
   };
   
-  const normalizeEbeln = (ebeln: string) => {
-    // This regex finds numbers that have leading zeros and are preceded by a word boundary (like a space, hyphen, or start of string)
-    // and removes those leading zeros.
-    // e.g., "00123" -> "123", "PO-00123" -> "PO-123", "PO 00123" -> "PO 123"
-    // It avoids changing things like "PO00123" if that's a valid format.
-    return ebeln.trim().replace(/\b0+([1-9][0-9]*)/g, '$1');
+  const normalizeEbeln = (ebeln: string | number) => {
+    if (!ebeln) return '';
+    // Removes spaces, dashes, and other symbols, making matching more reliable.
+    // e.g., "PO-123 45" becomes "PO12345"
+    return String(ebeln).replace(/[^a-zA-Z0-9]/g, '');
   };
 
   const handleReorder = async () => {
@@ -166,7 +166,7 @@ export function PdfReorderForm() {
             .filter(row => row && row[0] && row[1])
             .map(row => ({
               docNumber: String(row[0]).trim(),
-              ebeln: normalizeEbeln(String(row[1])),
+              ebeln: normalizeEbeln(row[1]),
             }));
           unsortedRows.sort((a, b) => a.docNumber.localeCompare(b.docNumber, undefined, { numeric: true }));
         } else {
@@ -174,7 +174,7 @@ export function PdfReorderForm() {
             .filter(row => row && row[0])
             .map((row, index) => ({
               docNumber: String(index + 1),
-              ebeln: normalizeEbeln(String(row[0])),
+              ebeln: normalizeEbeln(row[0]),
             }));
         }
         
@@ -198,30 +198,34 @@ export function PdfReorderForm() {
           textContent.items.map(item => ("str" in item ? item.str : "")).join(" ")
         );
 
-        setProgressMessage("Analizando páginas del PDF...");
+        setProgressMessage("Analizando páginas del PDF con IA...");
         
-        const keywords = ["EBELN", "Pedido", "Orden de Compra", "Purchase Order", "PO No", "PO #"];
-        const ebelnRegex = new RegExp(`(?:${keywords.join("|")})\\s*:?\\s*([a-zA-Z0-9\\-]+)`, "i");
-        
-        const ebelnToPageMap = new Map<string, number[]>();
+        try {
+          const ebelnExtractionPromises = pageTexts.map(text => extractEbeln(text));
+          const extractedEbelns = await Promise.all(ebelnExtractionPromises);
 
-        pageTexts.forEach((text, index) => {
-          const pageNumber = index + 1;
-          const match = text.match(ebelnRegex);
-          if (match && match[1]) {
-            const ebeln = normalizeEbeln(match[1]);
-            if (!ebelnToPageMap.has(ebeln)) {
-              ebelnToPageMap.set(ebeln, []);
+          const ebelnToPageMap = new Map<string, number[]>();
+
+          extractedEbelns.forEach((ebeln, index) => {
+            if (ebeln && ebeln.trim() !== "") {
+              const normalizedEbeln = normalizeEbeln(ebeln);
+              const pageNumber = index + 1;
+              if (!ebelnToPageMap.has(normalizedEbeln)) {
+                ebelnToPageMap.set(normalizedEbeln, []);
+              }
+              ebelnToPageMap.get(normalizedEbeln)!.push(pageNumber);
             }
-            ebelnToPageMap.get(ebeln)!.push(pageNumber);
+          });
+          
+          for (const pages of ebelnToPageMap.values()) {
+              pages.sort((a, b) => a - b);
           }
-        });
-        
-        for (const pages of ebelnToPageMap.values()) {
-            pages.sort((a, b) => a - b);
-        }
 
-        return { ebelnToPageMap, totalPages: numPages };
+          return { ebelnToPageMap, totalPages: numPages };
+        } catch (aiError) {
+          console.error("AI feature failed:", aiError);
+          throw new Error("La función de IA falló. Esto podría deberse a un problema de configuración en tu proyecto de Google Cloud (API no habilitada, etc.).");
+        }
       };
 
       const [orderedRows, { ebelnToPageMap, totalPages }] = await Promise.all([
