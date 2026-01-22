@@ -45,7 +45,18 @@ const extractEbelnFlow = ai.defineFlow(
     outputSchema: ExtractEbelnOutputSchema,
   },
   async input => {
-    const response = await extractEbelnPrompt(input);
+    let response;
+    try {
+        response = await extractEbelnPrompt(input);
+    } catch (aiError) {
+        if (aiError instanceof Error && aiError.message.includes('RESOURCE_EXHAUSTED')) {
+             throw new Error("Se ha alcanzado el límite de uso de la IA. Por favor, intenta de nuevo más tarde o revisa la configuración de facturación de tu proyecto de Google Cloud.");
+        }
+        console.error("AI feature failed:", aiError);
+        const errorMessage = aiError instanceof Error ? aiError.message : "An unknown AI error occurred.";
+        throw new Error(`La función de IA falló: ${errorMessage}`);
+    }
+
     const textOutput = response.text.trim();
     try {
       // The model may wrap the JSON in markdown backticks.
