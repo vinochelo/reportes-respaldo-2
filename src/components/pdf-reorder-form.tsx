@@ -119,6 +119,14 @@ export function PdfReorderForm() {
     setProgressMessage("");
     setDownloadUrl(null);
   };
+  
+  const normalizeEbeln = (ebeln: string) => {
+    // This regex finds numbers that have leading zeros and are preceded by a word boundary (like a space, hyphen, or start of string)
+    // and removes those leading zeros.
+    // e.g., "00123" -> "123", "PO-00123" -> "PO-123", "PO 00123" -> "PO 123"
+    // It avoids changing things like "PO00123" if that's a valid format.
+    return ebeln.trim().replace(/\b0+([1-9][0-9]*)/g, '$1');
+  };
 
   const handleReorder = async () => {
     if (!pdfFile || !excelFile) {
@@ -158,7 +166,7 @@ export function PdfReorderForm() {
             .filter(row => row && row[0] && row[1])
             .map(row => ({
               docNumber: String(row[0]).trim(),
-              ebeln: String(row[1]).trim().replace(/^0+/, ""),
+              ebeln: normalizeEbeln(String(row[1])),
             }));
           unsortedRows.sort((a, b) => a.docNumber.localeCompare(b.docNumber, undefined, { numeric: true }));
         } else {
@@ -166,7 +174,7 @@ export function PdfReorderForm() {
             .filter(row => row && row[0])
             .map((row, index) => ({
               docNumber: String(index + 1),
-              ebeln: String(row[0]).trim().replace(/^0+/, ""),
+              ebeln: normalizeEbeln(String(row[0])),
             }));
         }
         
@@ -193,7 +201,7 @@ export function PdfReorderForm() {
         setProgressMessage("Analizando páginas del PDF...");
         
         const keywords = ["EBELN", "Pedido", "Orden de Compra", "Purchase Order", "PO No", "PO #"];
-        const ebelnRegex = new RegExp(`(?:${keywords.join("|")})\\s*:?\\s*(\\d+)`, "i");
+        const ebelnRegex = new RegExp(`(?:${keywords.join("|")})\\s*:?\\s*([a-zA-Z0-9\\-]+)`, "i");
         
         const ebelnToPageMap = new Map<string, number[]>();
 
@@ -201,7 +209,7 @@ export function PdfReorderForm() {
           const pageNumber = index + 1;
           const match = text.match(ebelnRegex);
           if (match && match[1]) {
-            const ebeln = match[1].trim().replace(/^0+/, "");
+            const ebeln = normalizeEbeln(match[1]);
             if (!ebelnToPageMap.has(ebeln)) {
               ebelnToPageMap.set(ebeln, []);
             }
