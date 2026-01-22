@@ -26,7 +26,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { extractEbeln } from "@/ai/flows/extract-ebeln-from-text";
 
 type Status = "idle" | "processing" | "success" | "error";
 
@@ -188,57 +187,55 @@ export function PdfReorderForm() {
 
       // Step 3: Process PDF to group pages by identifier
       const getEbelnToPageMap = async () => {
-        setProgressMessage("Extrayendo texto del PDF...");
+        setProgressMessage("Analizando páginas del PDF...");
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
 
-        const pagePromises = [];
+        const extractEbelnFromLocalText = (text: string): string | null => {
+            const cleanText = text.replace(/(\r\n|\n|\r)/gm, " ").replace(/\s+/g, " ");
+            const patterns = [
+                /(?:EBELN|Pedido|Orden de Compra|Purchase Order|PO No\.?|PO #)\s*:?\s+([a-zA-Z0-9-]{4,20})/,
+                /\b(45\d{8})\b/
+            ];
+            for (const pattern of patterns) {
+                const match = cleanText.match(pattern);
+                if (match && match[1]) {
+                   return match[1];
+                }
+            }
+            return null;
+        };
+
+        const ebelnToPageMap = new Map<string, number[]>();
+
         for (let i = 1; i <= numPages; i++) {
-          pagePromises.push(pdfDoc.getPage(i));
-        }
-        const pages = await Promise.all(pagePromises);
-        
-        const pageTextPromises = pages.map(page => {
-          const viewport = page.getViewport({ scale: 1 });
-          const topRegionThreshold = viewport.height * 0.75; // Only consider text in the top 25% of the page
-          return page.getTextContent().then(textContent => {
-            return textContent.items
+            const page = await pdfDoc.getPage(i);
+            const textContent = await page.getTextContent();
+            
+            const viewport = page.getViewport({ scale: 1 });
+            const topRegionThreshold = viewport.height * 0.70; // Top 30%
+            
+            const pageText = textContent.items
               .filter(item => "str" in item && item.transform[5] >= topRegionThreshold)
               .map(item => ("str" in item ? item.str : ""))
               .join(" ");
-          });
-        });
+              
+            const ebeln = extractEbelnFromLocalText(pageText);
 
-        const pageTexts = await Promise.all(pageTextPromises);
-
-        setProgressMessage("Analizando páginas del PDF con IA...");
-        
-        try {
-          const ebelnExtractionPromises = pageTexts.map(text => extractEbeln(text));
-          const extractedEbelns = await Promise.all(ebelnExtractionPromises);
-
-          const ebelnToPageMap = new Map<string, number[]>();
-
-          extractedEbelns.forEach((ebeln, index) => {
             if (ebeln && ebeln.trim() !== "") {
-              const normalizedEbeln = normalizeEbeln(ebeln);
-              const pageNumber = index + 1;
-              if (!ebelnToPageMap.has(normalizedEbeln)) {
-                ebelnToPageMap.set(normalizedEbeln, []);
-              }
-              ebelnToPageMap.get(normalizedEbeln)!.push(pageNumber);
+                const normalizedEbeln = normalizeEbeln(ebeln);
+                if (!ebelnToPageMap.has(normalizedEbeln)) {
+                    ebelnToPageMap.set(normalizedEbeln, []);
+                }
+                ebelnToPageMap.get(normalizedEbeln)!.push(i);
             }
-          });
-          
-          for (const pages of ebelnToPageMap.values()) {
-              pages.sort((a, b) => a - b);
-          }
-
-          return { ebelnToPageMap, totalPages: numPages };
-        } catch (aiError) {
-          console.error("AI feature failed:", aiError);
-          throw new Error("La función de IA falló. Esto suele deberse a un problema de configuración en tu proyecto de Google Cloud (la API de IA puede no estar habilitada o la facturación no está activa). Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo.");
         }
+        
+        for (const pages of ebelnToPageMap.values()) {
+            pages.sort((a, b) => a - b);
+        }
+
+        return { ebelnToPageMap, totalPages: numPages };
       };
 
       const [orderedRows, { ebelnToPageMap, totalPages }] = await Promise.all([
@@ -395,7 +392,7 @@ export function PdfReorderForm() {
                   <strong>Lectura de Excel:</strong> La aplicación lee tu archivo Excel para obtener la lista y el orden deseado de los números de pedido.
                 </li>
                 <li>
-                  <strong>Extracción Optimizada y Consulta con IA:</strong> Para cada página del PDF, la aplicación inteligentemente extrae texto solo de la <strong>parte superior</strong>, donde suele estar el número de pedido. Este pequeño fragmento se envía al modelo de IA <code>gemini-flash</code> con una pregunta simple: "¿Cuál es el número de pedido aquí?". Este método es mucho más rápido y eficiente.
+                  <strong>Análisis Inteligente de PDF:</strong> Para cada página del PDF, la aplicación extrae texto de la <strong>parte superior</strong> y utiliza un sistema de reconocimiento de patrones para identificar el número de pedido, buscando etiquetas comunes como "Pedido", "PO No.", etc.
                 </li>
                 <li>
                   <strong>Mapeo y Reordenamiento:</strong> El sistema asocia cada número de pedido con su página correspondiente. Luego, usa tu lista de Excel como guía para crear el nuevo orden. Las páginas que no coincidan se mueven al final.
