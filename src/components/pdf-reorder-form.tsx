@@ -193,20 +193,18 @@ export function PdfReorderForm() {
         const numPages = pdfDoc.numPages;
         const ebelnToPageMap = new Map<string, number[]>();
         
-        // The API has a rate limit of ~20 requests per minute.
-        // Instead of batching, we will space out each request to be safe.
-        // 20 RPM = 1 request every 3 seconds. We'll use 3.1s for safety.
-        const DELAY_BETWEEN_REQUESTS_MS = 3100;
+        // The API has a rate limit of 20 requests per minute.
+        // We will add a delay between each request to stay under the limit.
+        // 15 RPM = 1 request every 4 seconds. This is a safe buffer.
+        const DELAY_BETWEEN_REQUESTS_MS = 4000;
 
         for (let i = 1; i <= numPages; i++) {
+          // Always wait before making a request to avoid bursting the rate limit,
+          // especially when retrying after a failure.
+          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_REQUESTS_MS));
+
           setProgressMessage(`Analizando página ${i} de ${numPages}...`);
           
-          // Wait BEFORE making the request (except for the very first one).
-          // This prevents sudden bursts of requests that trigger rate limiting.
-          if (i > 1) {
-            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_REQUESTS_MS));
-          }
-
           const page = await pdfDoc.getPage(i);
           
           const viewport = page.getViewport({ scale: 1 });
