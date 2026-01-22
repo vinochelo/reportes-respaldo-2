@@ -210,7 +210,6 @@ export function PdfReorderForm() {
           if (pageText.trim() === "") continue;
 
           try {
-            // Call the AI flow for each page
             const { ebeln } = await extractEbeln({ pageText });
 
             if (ebeln && ebeln.trim() !== "") {
@@ -221,10 +220,9 @@ export function PdfReorderForm() {
               ebelnToPageMap.get(normalizedEbeln)!.push(i);
             }
           } catch (aiError) {
-             console.error("AI feature failed:", aiError);
+            console.error("AI feature failed:", aiError);
             const errorMessage = aiError instanceof Error ? aiError.message : "An unknown AI error occurred.";
             
-            // Check for specific quota error message from Genkit/Google AI
             if (errorMessage.includes("RESOURCE_EXHAUSTED") || errorMessage.includes("429")) {
                 throw new Error("Se ha alcanzado el límite de uso de la IA (cuota). Por favor, inténtalo más tarde o verifica la configuración de facturación de tu proyecto.");
             }
