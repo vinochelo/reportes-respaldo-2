@@ -40,9 +40,6 @@ const FileInput: React.FC<FileInputProps> = ({
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
-    // Si el archivo se borra externamente (p. ej., con un botón de reinicio),
-    // necesitamos borrar el valor del input de archivo. Esto permite al usuario
-    // seleccionar el mismo archivo de nuevo.
     if (file === null && inputRef.current) {
       inputRef.current.value = "";
     }
@@ -112,7 +109,6 @@ export function PdfReorderForm() {
   const { toast } = useToast();
 
   React.useEffect(() => {
-    // Configure PDF.js worker
     pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
   }, []);
 
@@ -162,7 +158,7 @@ export function PdfReorderForm() {
             .filter(row => row && row[0] && row[1])
             .map(row => ({
               docNumber: String(row[0]).trim(),
-              ebeln: String(row[1]).trim(),
+              ebeln: String(row[1]).trim().replace(/^0+/, ""),
             }));
           unsortedRows.sort((a, b) => a.docNumber.localeCompare(b.docNumber, undefined, { numeric: true }));
         } else {
@@ -170,14 +166,14 @@ export function PdfReorderForm() {
             .filter(row => row && row[0])
             .map((row, index) => ({
               docNumber: String(index + 1),
-              ebeln: String(row[0]).trim(),
+              ebeln: String(row[0]).trim().replace(/^0+/, ""),
             }));
         }
         
         return unsortedRows;
       };
 
-      // Step 3: Process PDF to group pages by EBELN using Regex
+      // Step 3: Process PDF to group pages by identifier
       const getEbelnToPageMap = async () => {
         setProgressMessage("Extrayendo texto del PDF...");
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
@@ -196,14 +192,16 @@ export function PdfReorderForm() {
 
         setProgressMessage("Analizando páginas del PDF...");
         
-        const ebelnRegex = /EBELN\s*:?\s*(\d+)/i;
+        const keywords = ["EBELN", "Pedido", "Orden de Compra", "Purchase Order", "PO No", "PO #"];
+        const ebelnRegex = new RegExp(`(?:${keywords.join("|")})\\s*:?\\s*(\\d+)`, "i");
+        
         const ebelnToPageMap = new Map<string, number[]>();
 
         pageTexts.forEach((text, index) => {
           const pageNumber = index + 1;
           const match = text.match(ebelnRegex);
           if (match && match[1]) {
-            const ebeln = match[1].trim();
+            const ebeln = match[1].trim().replace(/^0+/, "");
             if (!ebelnToPageMap.has(ebeln)) {
               ebelnToPageMap.set(ebeln, []);
             }
@@ -239,6 +237,16 @@ export function PdfReorderForm() {
             }
           }
         }
+      }
+
+      if (newPageOrder.length === 0 && orderedRows.length > 0) {
+        setStatus("error");
+        toast({
+            variant: "destructive",
+            title: "No se Encontraron Coincidencias",
+            description: "No se pudo encontrar ninguna de las órdenes de compra del Excel en el archivo PDF. Revisa que los números coincidan.",
+        });
+        return;
       }
       
       const originalPages = Array.from({ length: totalPages }, (_, i) => i + 1);
