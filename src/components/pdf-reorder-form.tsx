@@ -221,10 +221,15 @@ export function PdfReorderForm() {
               ebelnToPageMap.get(normalizedEbeln)!.push(i);
             }
           } catch (aiError) {
-            console.error("AI feature failed:", aiError);
-            throw new Error(
-              aiError instanceof Error ? aiError.message : "La función de IA falló. Esto podría deberse a un problema de configuración en tu proyecto de Google Cloud. Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo."
-            );
+             console.error("AI feature failed:", aiError);
+            const errorMessage = aiError instanceof Error ? aiError.message : "An unknown AI error occurred.";
+            
+            // Check for specific quota error message from Genkit/Google AI
+            if (errorMessage.includes("RESOURCE_EXHAUSTED") || errorMessage.includes("429")) {
+                throw new Error("Se ha alcanzado el límite de uso de la IA (cuota). Por favor, inténtalo más tarde o verifica la configuración de facturación de tu proyecto.");
+            }
+            
+            throw new Error(`La función de IA falló: ${errorMessage}`);
           }
         }
         
