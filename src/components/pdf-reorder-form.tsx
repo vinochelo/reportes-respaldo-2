@@ -192,7 +192,7 @@ export function PdfReorderForm() {
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
         const ebelnToPageMap = new Map<string, number[]>();
-        const BATCH_SIZE = 5;
+        const BATCH_SIZE = 15;
         const DELAY_MS = 60000; // 60 seconds
         
         for (let i = 1; i <= numPages; i++) {
