@@ -192,11 +192,21 @@ export function PdfReorderForm() {
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
         const ebelnToPageMap = new Map<string, number[]>();
-        const BATCH_SIZE = 10;
-        const DELAY_MS = 60000; // 60 seconds
         
+        // The API has a rate limit of ~20 requests per minute.
+        // Instead of batching, we will space out each request to be safe.
+        // 20 RPM = 1 request every 3 seconds. We'll use 3.1s for safety.
+        const DELAY_BETWEEN_REQUESTS_MS = 3100;
+
         for (let i = 1; i <= numPages; i++) {
           setProgressMessage(`Analizando página ${i} de ${numPages}...`);
+          
+          // Wait BEFORE making the request (except for the very first one).
+          // This prevents sudden bursts of requests that trigger rate limiting.
+          if (i > 1) {
+            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_REQUESTS_MS));
+          }
+
           const page = await pdfDoc.getPage(i);
           
           const viewport = page.getViewport({ scale: 1 });
@@ -226,12 +236,6 @@ export function PdfReorderForm() {
             throw new Error(
               aiError instanceof Error ? aiError.message : "La función de IA falló. Esto podría deberse a un problema de cuota o de configuración en tu proyecto de Google Cloud. Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo."
             );
-          }
-
-          // Check if we need to pause
-          if (i % BATCH_SIZE === 0 && i < numPages) {
-            setProgressMessage(`Pausa de 60s para respetar la cuota...`);
-            await new Promise(resolve => setTimeout(resolve, DELAY_MS));
           }
         }
         
