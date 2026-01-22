@@ -222,11 +222,6 @@ export function PdfReorderForm() {
           } catch (aiError) {
             console.error("AI feature failed:", aiError);
             const errorMessage = aiError instanceof Error ? aiError.message : "An unknown AI error occurred.";
-            
-            if (errorMessage.includes("RESOURCE_EXHAUSTED") || errorMessage.includes("429")) {
-                throw new Error("Se ha alcanzado el límite de uso de la IA (cuota). Por favor, inténtalo más tarde o verifica la configuración de facturación de tu proyecto.");
-            }
-            
             throw new Error(`La función de IA falló: ${errorMessage}`);
           }
         }
