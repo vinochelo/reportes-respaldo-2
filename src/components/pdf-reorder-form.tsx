@@ -38,6 +38,8 @@ interface FileInputProps {
   icon: React.ReactNode;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const FileInput: React.FC<FileInputProps> = ({
   file,
   onFileChange,
@@ -194,10 +196,16 @@ export function PdfReorderForm() {
         const ebelnToPageMap = new Map<string, number[]>();
         
         for (let i = 1; i <= numPages; i++) {
+          // After every 5 requests (the typical free tier limit per minute), wait for the quota to reset.
+          if (i > 1 && (i - 1) % 5 === 0) {
+            setProgressMessage(`Pausa de 1 min. para respetar límite de API...`);
+            await sleep(60000);
+          }
+
+          setProgressMessage(`Analizando página ${i} de ${numPages}...`);
           const page = await pdfDoc.getPage(i);
           
           const viewport = page.getViewport({ scale: 1 });
-          // Only analyze the top 30% of the page as an optimization.
           const topRegionThreshold = viewport.height * 0.70; 
           
           const textContent = await page.getTextContent();
@@ -208,15 +216,22 @@ export function PdfReorderForm() {
 
           if (pageText.trim() === "") continue;
 
-          // Call the AI flow for each page
-          const { ebeln } = await extractEbeln({ pageText });
+          try {
+            // Call the AI flow for each page
+            const { ebeln } = await extractEbeln({ pageText });
 
-          if (ebeln && ebeln.trim() !== "") {
-            const normalizedEbeln = normalizeEbeln(ebeln);
-            if (!ebelnToPageMap.has(normalizedEbeln)) {
-              ebelnToPageMap.set(normalizedEbeln, []);
+            if (ebeln && ebeln.trim() !== "") {
+              const normalizedEbeln = normalizeEbeln(ebeln);
+              if (!ebelnToPageMap.has(normalizedEbeln)) {
+                ebelnToPageMap.set(normalizedEbeln, []);
+              }
+              ebelnToPageMap.get(normalizedEbeln)!.push(i);
             }
-            ebelnToPageMap.get(normalizedEbeln)!.push(i);
+          } catch (aiError) {
+            console.error("AI feature failed:", aiError);
+            throw new Error(
+              aiError instanceof Error ? aiError.message : "La función de IA falló. Esto podría deberse a un problema de cuota o de configuración en tu proyecto de Google Cloud. Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo."
+            );
           }
         }
         
