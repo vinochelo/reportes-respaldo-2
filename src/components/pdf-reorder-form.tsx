@@ -18,7 +18,6 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { extractEbelnFromPage } from "@/ai/flows/extract-ebeln-from-pdf-pages";
 import { cn } from "@/lib/utils";
 
 type Status = "idle" | "processing" | "success" | "error";
@@ -168,7 +167,7 @@ export function PdfReorderForm() {
         return filteredAndTyped;
       };
 
-      // Step 3: Process PDF to group pages by EBELN using GenAI
+      // Step 3: Process PDF to group pages by EBELN using Regex
       const getEbelnToPageMap = async () => {
         setProgressMessage("Extrayendo texto del PDF...");
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
@@ -185,29 +184,21 @@ export function PdfReorderForm() {
           textContent.items.map(item => ("str" in item ? item.str : "")).join(" ")
         );
 
-        setProgressMessage("Analizando páginas del PDF con IA...");
+        setProgressMessage("Analizando páginas del PDF...");
         
-        let ebelnResults;
-        try {
-          const ebelnExtractionPromises = pageTexts.map(text => 
-              extractEbelnFromPage({ pageText: text })
-          );
-          ebelnResults = await Promise.all(ebelnExtractionPromises);
-        } catch (aiError) {
-          console.error("AI feature failed:", aiError);
-          throw new Error("La función de IA falló. Esto suele deberse a un problema de configuración en tu proyecto de Google Cloud (la API de IA puede no estar habilitada o la facturación no está activa). Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo.");
-        }
-        
+        const ebelnRegex = /EBELN\s*:?\s*(\d{10})/i;
         const ebelnToPageMap = new Map<string, number[]>();
-        ebelnResults.forEach((result, index) => {
-            const pageNumber = index + 1; // page numbers are 1-based
-            if (result && result.ebeln) {
-                const ebeln = result.ebeln.trim();
-                if (!ebelnToPageMap.has(ebeln)) {
-                    ebelnToPageMap.set(ebeln, []);
-                }
-                ebelnToPageMap.get(ebeln)!.push(pageNumber);
+
+        pageTexts.forEach((text, index) => {
+          const pageNumber = index + 1;
+          const match = text.match(ebelnRegex);
+          if (match && match[1]) {
+            const ebeln = match[1].trim();
+            if (!ebelnToPageMap.has(ebeln)) {
+              ebelnToPageMap.set(ebeln, []);
             }
+            ebelnToPageMap.get(ebeln)!.push(pageNumber);
+          }
         });
         
         // Sort page numbers within each EBELN group to ensure they are in order
