@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { extractEbeln } from "@/ai/flows/extract-ebeln-from-pdf-pages";
 
 type Status = "idle" | "processing" | "success" | "error";
 
@@ -191,44 +192,38 @@ export function PdfReorderForm() {
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
 
-        const extractEbelnFromLocalText = (text: string): string | null => {
-            const cleanText = text.replace(/(\r\n|\n|\r)/gm, " ").replace(/\s+/g, " ");
-            const patterns = [
-                /(?:EBELN|Pedido|Orden de Compra|Purchase Order|PO No\.?|PO #)\s*:?\s+([a-zA-Z0-9-]{4,20})/,
-                /\b(45\d{8})\b/
-            ];
-            for (const pattern of patterns) {
-                const match = cleanText.match(pattern);
-                if (match && match[1]) {
-                   return match[1];
-                }
-            }
-            return null;
-        };
-
         const ebelnToPageMap = new Map<string, number[]>();
 
-        for (let i = 1; i <= numPages; i++) {
+        try {
+          for (let i = 1; i <= numPages; i++) {
             const page = await pdfDoc.getPage(i);
-            const textContent = await page.getTextContent();
             
             const viewport = page.getViewport({ scale: 1 });
-            const topRegionThreshold = viewport.height * 0.70; // Top 30%
+            // Only analyze the top 30% of the page as an optimization.
+            const topRegionThreshold = viewport.height * 0.70; 
             
+            const textContent = await page.getTextContent();
             const pageText = textContent.items
               .filter(item => "str" in item && item.transform[5] >= topRegionThreshold)
               .map(item => ("str" in item ? item.str : ""))
               .join(" ");
-              
-            const ebeln = extractEbelnFromLocalText(pageText);
+
+            if (pageText.trim() === "") continue;
+
+            // Call the AI flow for each page
+            const { ebeln } = await extractEbeln({ pageText });
 
             if (ebeln && ebeln.trim() !== "") {
-                const normalizedEbeln = normalizeEbeln(ebeln);
-                if (!ebelnToPageMap.has(normalizedEbeln)) {
-                    ebelnToPageMap.set(normalizedEbeln, []);
-                }
-                ebelnToPageMap.get(normalizedEbeln)!.push(i);
+              const normalizedEbeln = normalizeEbeln(ebeln);
+              if (!ebelnToPageMap.has(normalizedEbeln)) {
+                ebelnToPageMap.set(normalizedEbeln, []);
+              }
+              ebelnToPageMap.get(normalizedEbeln)!.push(i);
             }
+          }
+        } catch (aiError) {
+          console.error("AI feature failed:", aiError);
+          throw new Error("La función de IA falló. Esto suele deberse a un problema de configuración en tu proyecto de Google Cloud (la API de IA puede no estar habilitada o la facturación no está activa). Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo.");
         }
         
         for (const pages of ebelnToPageMap.values()) {
@@ -392,7 +387,7 @@ export function PdfReorderForm() {
                   <strong>Lectura de Excel:</strong> La aplicación lee tu archivo Excel para obtener la lista y el orden deseado de los números de pedido.
                 </li>
                 <li>
-                  <strong>Análisis Inteligente de PDF:</strong> Para cada página del PDF, la aplicación extrae texto de la <strong>parte superior</strong> y utiliza un sistema de reconocimiento de patrones para identificar el número de pedido, buscando etiquetas comunes como "Pedido", "PO No.", etc.
+                  <strong>Análisis con IA (Página por Página):</strong> Para cada página del PDF, la aplicación extrae texto de la <strong>parte superior</strong> y se lo envía a un modelo de IA para que identifique el número de pedido. Este método es más preciso que una simple búsqueda de texto.
                 </li>
                 <li>
                   <strong>Mapeo y Reordenamiento:</strong> El sistema asocia cada número de pedido con su página correspondiente. Luego, usa tu lista de Excel como guía para crear el nuevo orden. Las páginas que no coincidan se mueven al final.
