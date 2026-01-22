@@ -192,6 +192,8 @@ export function PdfReorderForm() {
         const pdfDoc = await pdfjs.getDocument(pdfBuffer.slice(0)).promise;
         const numPages = pdfDoc.numPages;
         const ebelnToPageMap = new Map<string, number[]>();
+        const BATCH_SIZE = 5;
+        const DELAY_MS = 60000; // 60 seconds
         
         for (let i = 1; i <= numPages; i++) {
           setProgressMessage(`Analizando página ${i} de ${numPages}...`);
@@ -224,6 +226,12 @@ export function PdfReorderForm() {
             throw new Error(
               aiError instanceof Error ? aiError.message : "La función de IA falló. Esto podría deberse a un problema de cuota o de configuración en tu proyecto de Google Cloud. Por favor, verifica la configuración de tu proyecto y vuelve a intentarlo."
             );
+          }
+
+          // Check if we need to pause
+          if (i % BATCH_SIZE === 0 && i < numPages) {
+            setProgressMessage(`Pausa de 60s para respetar la cuota...`);
+            await new Promise(resolve => setTimeout(resolve, DELAY_MS));
           }
         }
         
