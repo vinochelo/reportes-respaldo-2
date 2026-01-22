@@ -221,6 +221,9 @@ export function PdfReorderForm() {
             }
           } catch (aiError) {
             console.error("AI feature failed:", aiError);
+            if (aiError instanceof Error && aiError.message.includes('RESOURCE_EXHAUSTED')) {
+                 throw new Error("Se ha alcanzado el límite de uso diario de la IA. Por favor, intenta de nuevo más tarde o revisa la configuración de facturación de tu proyecto de Google Cloud.");
+            }
             const errorMessage = aiError instanceof Error ? aiError.message : "An unknown AI error occurred.";
             throw new Error(`La función de IA falló: ${errorMessage}`);
           }
