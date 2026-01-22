@@ -24,7 +24,7 @@ export type ExtractEbelnOutput = z.infer<typeof ExtractEbelnOutputSchema>;
 
 const extractEbelnPrompt = ai.definePrompt({
   name: 'extractEbelnPrompt',
-  model: googleAI.model('gemini-2.5-flash-preview-09-2025'),
+  model: googleAI.model('gemini-1.5-flash'),
   input: {schema: ExtractEbelnInputSchema},
   prompt: `You are an expert at finding purchase order numbers in document text. The purchase order number is often labeled as "Pedido", "EBELN", "PO No.", or "Orden de Compra". It can be a purely numeric value (like 4500123456) or alphanumeric. Find the purchase order number in the following text.
 

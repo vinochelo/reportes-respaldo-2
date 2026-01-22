@@ -38,8 +38,6 @@ interface FileInputProps {
   icon: React.ReactNode;
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const FileInput: React.FC<FileInputProps> = ({
   file,
   onFileChange,
@@ -196,12 +194,6 @@ export function PdfReorderForm() {
         const ebelnToPageMap = new Map<string, number[]>();
         
         for (let i = 1; i <= numPages; i++) {
-          // After every 5 requests (the typical free tier limit per minute), wait for the quota to reset.
-          if (i > 1 && (i - 1) % 5 === 0) {
-            setProgressMessage(`Pausa de 1 min. para respetar límite de API...`);
-            await sleep(60000);
-          }
-
           setProgressMessage(`Analizando página ${i} de ${numPages}...`);
           const page = await pdfDoc.getPage(i);
           
