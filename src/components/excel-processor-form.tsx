@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as XLSX from "xlsx";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PageSizes } from "pdf-lib";
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -145,13 +145,13 @@ export function ExcelProcessorForm() {
       
       const comprasHeaderRowIndex = comprasData.findIndex(row => 
         Array.isArray(row) && 
-        row.some(cell => typeof cell === 'string' && cell.trim() === "Ord. de Compra")
+        row.some(cell => typeof cell === 'string' && cell.trim().toUpperCase() === "ORD. DE COMPRA")
       );
       if (comprasHeaderRowIndex === -1) {
         throw new Error("No se encontró la fila de encabezado con 'Ord. de Compra' en el reporte de compras.");
       }
-      const comprasHeaders = comprasData[comprasHeaderRowIndex];
-      const purchaseOrderColIndex = comprasHeaders.findIndex(cell => typeof cell === 'string' && cell.trim() === "Ord. de Compra");
+      const comprasHeaders = comprasData[comprasHeaderRowIndex].map(h => String(h || '').trim());
+      const purchaseOrderColIndex = comprasHeaders.findIndex(cell => cell.toUpperCase() === "ORD. DE COMPRA");
       if (purchaseOrderColIndex === -1) {
         throw new Error("No se pudo encontrar la columna 'Ord. de Compra' en la fila de encabezado del reporte de compras.");
       }
@@ -172,7 +172,7 @@ export function ExcelProcessorForm() {
       // 2. Process "Reporte de Documentos" (EKBE)
       setProgressMessage("Leyendo reporte de documentos...");
       const docBuffer = await documentosFile.arrayBuffer();
-      const docWorkbook = XLSX.read(docBuffer); // Let xlsx handle format (HTML table in XLS)
+      const docWorkbook = XLSX.read(docBuffer);
       const docSheetName = docWorkbook.SheetNames[0];
       const docWorksheet = docWorkbook.Sheets[docSheetName];
       const docData: any[][] = XLSX.utils.sheet_to_json(docWorksheet, { header: 1 });
@@ -213,49 +213,134 @@ export function ExcelProcessorForm() {
       const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       
       const sortedBelnrs = Array.from(belnrToEbelnMap.keys()).sort();
-      let currentPage = pdfDoc.addPage();
-      const { width, height } = currentPage.getSize();
-      const margin = 40;
-      let y = height - margin;
 
-      const drawTable = (page: any, headers: string[], rows: any[][], startY: number) => {
-        let currentY = startY;
-        const rowHeight = 18;
-        const headerSize = 9;
-        const rowSize = 8;
-        const colWidths = headers.map(() => (width - 2 * margin) / headers.length);
+      const pageLayout = {
+        size: [PageSizes.A4[1], PageSizes.A4[0]], // Landscape A4
+        margin: 30,
+      };
+
+      const drawPageHeader = (page: any) => {
+        const y = page.getSize().height - pageLayout.margin + 10;
+        page.drawText("Reporte Utilidades de Pedidos de Compras", {
+          x: pageLayout.margin,
+          y,
+          font: helveticaBoldFont,
+          size: 14,
+        });
+        const today = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        const dateText = `Fecha de Ejecución: ${today}`;
         
+        page.drawText(dateText, {
+          x: pageLayout.margin,
+          y: y - 15,
+          font: helveticaFont,
+          size: 10,
+        });
+      };
+      
+      let currentPage = pdfDoc.addPage(pageLayout.size);
+      drawPageHeader(currentPage);
+      const { width, height } = currentPage.getSize();
+      let y = height - pageLayout.margin - 40;
+
+      const drawTable = (page: any, headers: string[], rows: any[][], startY: number, ebeln: string, belnr: string) => {
+        let currentY = startY;
+        const rowHeight = 15;
+        const headerSize = 7;
+        const rowSize = 7;
+        const availableWidth = width - 2 * pageLayout.margin;
+
+        // Sub-header for the specific document/PO
+        page.drawText(`Ord. de Compra: ${ebeln}`, { x: pageLayout.margin, y: currentY, font: helveticaBoldFont, size: 9 });
+        const docText = `Documento: ${belnr}`;
+        const docWidth = helveticaBoldFont.widthOfTextAtSize(docText, 9);
+        page.drawText(docText, { x: width - pageLayout.margin - docWidth, y: currentY, font: helveticaBoldFont, size: 9 });
+        currentY -= 20;
+
+        const sumColumns = ['Cant. In.','Costo Uni.','PVP S/IVA.','Costo total', 'PVP Total', 'Valor a Pagar'];
+        const sumTotals = new Array(headers.length).fill(0);
+        const sumColumnIndices: number[] = [];
+        headers.forEach((h, i) => {
+            if (sumColumns.map(sc => sc.toUpperCase()).includes(h.toUpperCase())) {
+                sumColumnIndices.push(i);
+            }
+        });
+
+        const columnWidths = [75, 75, 140, 75, 85, 140, 50, 60, 60, 50, 70, 70, 75];
+        const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
+        const scale = availableWidth / tableWidth;
+        const scaledWidths = columnWidths.map(w => w * scale);
+
         // Draw Header
-        let currentX = margin;
+        let currentX = pageLayout.margin;
+        page.drawRectangle({
+          x: pageLayout.margin,
+          y: currentY - rowHeight + 2,
+          width: availableWidth,
+          height: rowHeight,
+          color: rgb(0.22, 0.45, 0.70), // Blue background
+        })
         headers.forEach((header, i) => {
-          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 12, font: helveticaBoldFont, size: headerSize });
-          currentX += colWidths[i];
+          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 9, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+          currentX += scaledWidths[i];
         });
         currentY -= rowHeight;
-        page.drawLine({ start: { x: margin, y: currentY + 4 }, end: { x: width - margin, y: currentY + 4 }, thickness: 0.5 });
         
         // Draw Rows
         for (const row of rows) {
-            if (currentY < margin + rowHeight) {
-                page = pdfDoc.addPage();
-                currentY = height - margin;
-                // Redraw header on new page
-                let newX = margin;
+            if (currentY < pageLayout.margin + rowHeight * 2) { // Need space for row and summary
+                page = pdfDoc.addPage(pageLayout.size);
+                drawPageHeader(page);
+                currentY = height - pageLayout.margin - 40;
+
+                page.drawText(`Ord. de Compra: ${ebeln} (cont.)`, { x: pageLayout.margin, y: currentY, font: helveticaBoldFont, size: 9 });
+                const docTextCont = `Documento: ${belnr}`;
+                const docWidthCont = helveticaBoldFont.widthOfTextAtSize(docTextCont, 9);
+                page.drawText(docTextCont, { x: width - pageLayout.margin - docWidthCont, y: currentY, font: helveticaBoldFont, size: 9 });
+                currentY -= 20;
+
+                let newX = pageLayout.margin;
+                page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(0.22, 0.45, 0.70) });
                 headers.forEach((header, i) => {
-                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 12, font: helveticaBoldFont, size: headerSize });
-                  newX += colWidths[i];
+                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 9, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+                  newX += scaledWidths[i];
                 });
                 currentY -= rowHeight;
-                page.drawLine({ start: { x: margin, y: currentY + 4 }, end: { x: width - margin, y: currentY + 4 }, thickness: 0.5 });
             }
             
-            let cellX = margin;
+            let cellX = pageLayout.margin;
             row.forEach((cell, i) => {
-                page.drawText(String(cell || ''), { x: cellX + 3, y: currentY - 12, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
-                cellX += colWidths[i];
+                const cellValue = String(cell === null || cell === undefined ? '' : cell);
+                page.drawText(cellValue, { x: cellX + 3, y: currentY - 9, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+                if (sumColumnIndices.includes(i)) {
+                    const numValue = parseFloat(cellValue.toString().replace(/,/g, ''));
+                    if (!isNaN(numValue)) {
+                        sumTotals[i] += numValue;
+                    }
+                }
+                cellX += scaledWidths[i];
             });
             currentY -= rowHeight;
+            page.drawLine({ start: { x: pageLayout.margin, y: currentY + 3 }, end: { x: width - pageLayout.margin, y: currentY + 3 }, thickness: 0.5, color: rgb(0.8,0.8,0.8) });
         }
+
+        // Draw summary row
+        let summaryX = pageLayout.margin;
+        page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 3, width: availableWidth, height: rowHeight, color: rgb(1, 1, 0.8) }); // Yellow background
+        page.drawText('*', { x: summaryX + 3, y: currentY - 9, font: helveticaBoldFont, size: rowSize });
+        
+        headers.forEach((h, i) => {
+            if (sumColumnIndices.includes(i)) {
+                 const totalString = sumTotals[i].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                 page.drawText(totalString, { x: summaryX + 3, y: currentY - 9, font: helveticaBoldFont, size: rowSize });
+            } else if (h.toUpperCase() === '% UTILIDAD' && rows.length > 0) {
+                 const lastUtilidad = String(rows[rows.length - 1][i] || '');
+                 page.drawText(lastUtilidad, { x: summaryX + 3, y: currentY - 9, font: helveticaBoldFont, size: rowSize });
+            }
+            summaryX += scaledWidths[i];
+        });
+        currentY -= rowHeight;
+
         return { finalY: currentY, finalPage: page };
       };
 
@@ -263,24 +348,24 @@ export function ExcelProcessorForm() {
         const ebeln = belnrToEbelnMap.get(belnr);
         if (!ebeln) continue;
         const poData = groupedByPurchaseOrder[ebeln];
-        if (!poData) continue;
+        if (!poData || poData.length === 0) continue;
 
-        const tableHeight = (poData.length + 1) * 18 + 50; // estimate
-        if (y < margin + tableHeight) {
-            currentPage = pdfDoc.addPage();
-            y = height - margin;
+        const estimatedHeight = (poData.length + 3) * 15 + 60;
+        if (y < pageLayout.margin + estimatedHeight) {
+            currentPage = pdfDoc.addPage(pageLayout.size);
+            drawPageHeader(currentPage);
+            y = height - pageLayout.margin - 40;
         }
 
-        y -= 20;
-        currentPage.drawText(`Documento: ${belnr}`, { x: margin, y, font: helveticaBoldFont, size: 14, color: rgb(0,0,0) });
-        y -= 15;
-        currentPage.drawText(`Orden de Compra: ${ebeln}`, { x: margin, y, font: helveticaFont, size: 11, color: rgb(0.3, 0.3, 0.3) });
-        y -= 25;
-
-        const { finalY, finalPage } = drawTable(currentPage, comprasHeaders, poData, y);
+        const { finalY, finalPage } = drawTable(currentPage, comprasHeaders, poData, y, ebeln, belnr);
         currentPage = finalPage;
         y = finalY;
         y -= 20; // Space between tables
+        if (y < pageLayout.margin + 50) { // check if there is enough space for the next table header
+            currentPage = pdfDoc.addPage(pageLayout.size);
+            drawPageHeader(currentPage);
+            y = height - pageLayout.margin - 40;
+        }
       }
 
       const pdfBytes = await pdfDoc.save();
