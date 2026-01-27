@@ -242,6 +242,23 @@ export function ExcelProcessorForm() {
       const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       
+      const COLUMN_WIDTH_CONFIG: Record<string, number> = {
+        'ORD. DE COMPRA': 70,
+        'PROVEEDOR': 65,
+        'NOMBRE PROVEEDOR': 200,
+        'MATERIAL': 60,
+        'DESCRIPCIÓN MATERIAL': 250,
+        'FECHA INGRESO': 75,
+        'CANT. IN': 30,
+        'COSTO UNI': 30,
+        'PVP S/IVA': 50,
+        'COSTO TOTAL': 50,
+        'PVP TOTAL': 50,
+        'VALOR A PAGAR': 65,
+        'UTILIDAD': 65,
+      };
+      const DEFAULT_COLUMN_WIDTH = 50;
+      
       const sortedBelnrs = Array.from(belnrToEbelnMap.keys()).sort();
 
       const pageLayout = {
@@ -332,7 +349,9 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [70, 75, 200, 50, 75, 250, 30, 30, 50, 50, 50, 65, 65];
+        const columnWidths = headers.map(h => 
+          COLUMN_WIDTH_CONFIG[String(h || '').trim().replace(/\.?$/, '').toUpperCase()] || DEFAULT_COLUMN_WIDTH
+        );
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -702,5 +721,7 @@ export function ExcelProcessorForm() {
     </div>
   );
 }
+
+    
 
     
