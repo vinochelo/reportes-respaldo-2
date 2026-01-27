@@ -242,12 +242,12 @@ export function ExcelProcessorForm() {
       const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       
       const COLUMN_WIDTH_CONFIG: Record<string, number> = {
-        'ORD. DE COMPRA': 70,
-        'PROVEEDOR': 65,
+        'ORD. DE COMPRA': 60,
+        'PROVEEDOR': 60,
         'NOMBRE PROVEEDOR': 200,
         'MATERIAL': 100,
-        'DESCRIPCION MATERIAL': 250,
-        'FECHA INGRESO': 75,
+        'DESCRIPCION MATERIAL': 300,
+        'FECHA INGRESO': 65,
         'CANT. IN': 30,
         'COSTO UNI': 40,
         'PVP S/IVA': 50,
@@ -531,13 +531,23 @@ export function ExcelProcessorForm() {
         return { finalY: currentY, finalPage: page };
       };
 
-      for (const [index, belnr] of sortedBelnrs.entries()) {
+      const processedEbelns = new Set<string>();
+      let pagesAdded = 0;
+
+      for (const belnr of sortedBelnrs) {
         const ebeln = belnrToEbelnMap.get(belnr);
         if (!ebeln) continue;
+
+        if (processedEbelns.has(ebeln)) {
+          continue;
+        }
+
         const poData = groupedByPurchaseOrder[ebeln];
         if (!poData || poData.length === 0) continue;
 
-        if (index > 0) {
+        processedEbelns.add(ebeln);
+
+        if (pagesAdded > 0) {
           currentPage = pdfDoc.addPage(pageLayout.size);
           y = height - pageLayout.margin - 15;
         }
@@ -545,6 +555,7 @@ export function ExcelProcessorForm() {
         
         const { finalPage } = drawTable(currentPage, comprasHeaders, poData, y, ebeln, belnr);
         currentPage = finalPage;
+        pagesAdded++;
       }
 
       const pdfBytes = await pdfDoc.save();
@@ -721,10 +732,3 @@ export function ExcelProcessorForm() {
     </div>
   );
 }
-
-    
-
-    
-
-    
- 
