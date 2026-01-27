@@ -317,7 +317,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [65, 55, 145, 55, 60, 195, 40, 50, 45, 50, 50, 50, 45];
+        const columnWidths = [55, 55, 170, 50, 75, 170, 40, 50, 45, 50, 50, 50, 45];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -336,7 +336,7 @@ export function ExcelProcessorForm() {
           const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
           let currentHeaderSize = headerSize;
           
-          const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI'];
+          const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO'];
           if (smallHeaders.includes(normalizedHeaderText)) {
             currentHeaderSize = 6;
           }
@@ -375,7 +375,7 @@ export function ExcelProcessorForm() {
                   const headerText = String(header || '');
                   const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
                   let currentHeaderSize = headerSize;
-                  const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI'];
+                  const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO'];
                   if (smallHeaders.includes(normalizedHeaderText)) {
                     currentHeaderSize = 6;
                   }
