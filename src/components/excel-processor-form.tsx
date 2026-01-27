@@ -238,16 +238,16 @@ export function ExcelProcessorForm() {
 
       const drawTable = (page: any, headers: string[], rows: any[][], startY: number, ebeln: string, belnr: string) => {
         let currentY = startY;
-        const rowHeight = 11;
+        const rowHeight = 9;
         const headerSize = 5;
         const rowSize = 5;
         const availableWidth = width - 2 * pageLayout.margin;
         
-        const columnsToSum = ['Cant. In.', 'Costo Uni.', 'PVP S/IVA.', 'Utilidad', 'Costo total', 'PVP Total', 'Valor a Pagar'];
+        const columnsToSum = ['Cant. In', 'Costo Uni', 'PVP S/IVA', 'Costo total', 'PVP Total', 'Valor a Pagar'];
         const columnsToAverage = ['% Utilidad'];
-        const valueColumns = ['Cant. In.','Costo Uni.','PVP S/IVA.','% Utilidad', 'Utilidad', 'Costo total', 'PVP Total', 'Valor a Pagar'];
+        const valueColumns = ['Cant. In','Costo Uni','PVP S/IVA','% Utilidad', 'Costo total', 'PVP Total', 'Valor a Pagar'];
         
-        const upperHeaders = headers.map(h => String(h || '').trim().toUpperCase());
+        const upperHeaders = headers.map(h => String(h || '').trim().replace(/\.?$/, '').toUpperCase());
         const sumIndices = columnsToSum.map(colName => upperHeaders.indexOf(colName.toUpperCase())).filter(i => i !== -1);
         const avgIndices = columnsToAverage.map(colName => upperHeaders.indexOf(colName.toUpperCase())).filter(i => i !== -1);
 
@@ -257,7 +257,7 @@ export function ExcelProcessorForm() {
         
         const centerAlignedIndices: number[] = [];
         headers.forEach((h, i) => {
-            if (valueColumns.map(sc => sc.toUpperCase()).includes(String(h || '').toUpperCase())) {
+            if (valueColumns.map(sc => sc.toUpperCase()).includes(String(h || '').trim().replace(/\.?$/, '').toUpperCase())) {
                 centerAlignedIndices.push(i);
             }
         });
@@ -278,7 +278,7 @@ export function ExcelProcessorForm() {
         })
         let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
-          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 8, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 7, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
           currentX += scaledWidths[i];
         });
         currentY -= rowHeight;
@@ -296,7 +296,7 @@ export function ExcelProcessorForm() {
                 let newX = pageLayout.margin;
                 page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(0.22, 0.45, 0.70) });
                 headers.forEach((header, i) => {
-                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 8, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 7, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
                   newX += scaledWidths[i];
                 });
                 currentY -= rowHeight;
@@ -323,7 +323,7 @@ export function ExcelProcessorForm() {
                     xPos = cellX + (scaledWidths[i] - textWidth) / 2;
                 }
 
-                page.drawText(cellValue, { x: xPos, y: currentY - 8, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+                page.drawText(cellValue, { x: xPos, y: currentY - 7, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
 
                 const numValue = parseFloat(cellValue.replace(/,/g, ''));
                 if (!isNaN(numValue)) {
@@ -351,10 +351,10 @@ export function ExcelProcessorForm() {
 
         // Draw summary row
         const summaryTopY = currentY + 2;
-        page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 0.5, color: rgb(0.6,0.6,0.6) });
+        page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 1, color: rgb(0.4, 0.4, 0.4) });
         page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(1, 1, 0.8) }); // Yellow background
         let summaryX = pageLayout.margin;
-        page.drawText('*', { x: summaryX + 3, y: currentY - 8, font: helveticaBoldFont, size: rowSize });
+        page.drawText('*', { x: summaryX + 3, y: currentY - 7, font: helveticaBoldFont, size: rowSize });
         
         headers.forEach((h, i) => {
             let textToDraw = '';
@@ -363,7 +363,7 @@ export function ExcelProcessorForm() {
                  textToDraw = totals[i].toFixed(2);
             } else if (avgIndices.includes(i) && avgCounts[i] > 0) {
                  const average = avgTotals[i] / avgCounts[i];
-                 textToDraw = average.toFixed(2);
+                 textToDraw = average.toFixed(2) + '%';
             }
 
             if (textToDraw) {
@@ -373,7 +373,7 @@ export function ExcelProcessorForm() {
                 if (isCenterAligned) {
                     xPos = summaryX + (scaledWidths[i] - textWidth) / 2;
                 }
-                page.drawText(textToDraw, { x: xPos, y: currentY - 8, font: helveticaBoldFont, size: rowSize });
+                page.drawText(textToDraw, { x: xPos, y: currentY - 7, font: helveticaBoldFont, size: rowSize });
             }
             summaryX += scaledWidths[i];
         });
