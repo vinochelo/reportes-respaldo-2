@@ -255,12 +255,11 @@ export function ExcelProcessorForm() {
             if (!text || text.trim() === '') return [''];
             
             const lines: string[] = [];
-            let currentLine = '';
             const textBlocks = text.split('\n');
 
             for(const block of textBlocks) {
                 const words = block.split(' ');
-                currentLine = '';
+                let currentLine = '';
                 for (const word of words) {
                     const testLine = currentLine ? `${currentLine} ${word}` : word;
                     if (font.widthOfTextAtSize(testLine, size) < maxWidth) {
@@ -296,7 +295,7 @@ export function ExcelProcessorForm() {
         const headerLineHeight = 12;
         const rowLineHeight = 11;
         const headerSize = 7;
-        const rowSize = 7;
+        const rowSize = 6.5;
         const availableWidth = width - 2 * pageLayout.margin;
         
         const columnsToSum = ['Cant. In', 'Costo Uni', 'PVP S/IVA', 'Costo total', 'PVP Total', 'Valor a Pagar', 'Utilidad'];
@@ -318,7 +317,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [50, 55, 195, 55, 85, 145, 40, 50, 45, 50, 50, 50, 60];
+        const columnWidths = [60, 55, 195, 55, 85, 145, 40, 50, 45, 50, 50, 50, 50];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -365,7 +364,7 @@ export function ExcelProcessorForm() {
             const maxLines = Math.max(1, ...rowCellLines.map(lines => lines.length));
             const dynamicRowHeight = maxLines * rowLineHeight;
             
-            if (currentY < pageLayout.margin + dynamicRowHeight) {
+            if (currentY - dynamicRowHeight < pageLayout.margin) {
                 page = pdfDoc.addPage(pageLayout.size);
                 drawPageHeader(page);
                 currentY = height - pageLayout.margin - 15;
@@ -398,9 +397,9 @@ export function ExcelProcessorForm() {
                     if (isCenterAligned) {
                         xPos = cellX + (scaledWidths[i] - textWidth) / 2;
                     }
-                    const yPos = rowTopY - (dynamicRowHeight / 2) - ((lines.length-1) * (rowSize+1)/2) + ((lines.length-1 - lineIndex) * (rowSize+1)) - 1;
+                    const yPos = rowTopY - (dynamicRowHeight / 2) - ((lines.length-1) * (rowSize+1)/2) + ((lines.length-1 - lineIndex) * (rowSize+1));
 
-                    page.drawText(line, { x: xPos, y: yPos + (dynamicRowHeight - (rowSize * maxLines))/2 - 1, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+                    page.drawText(line, { x: xPos, y: yPos -1 , font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
                 });
                 cellX += scaledWidths[i];
             });
@@ -435,6 +434,14 @@ export function ExcelProcessorForm() {
                 if (i < scaledWidths.length) vLineX += scaledWidths[i];
             }
         }
+
+        const summaryRowY = currentY;
+        if (summaryRowY - headerLineHeight < pageLayout.margin) {
+          page = pdfDoc.addPage(pageLayout.size);
+          drawPageHeader(page);
+          currentY = height - pageLayout.margin - 15;
+        }
+
 
         // Draw summary row
         const summaryTopY = currentY;
