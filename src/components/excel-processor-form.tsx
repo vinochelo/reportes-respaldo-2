@@ -268,7 +268,7 @@ export function ExcelProcessorForm() {
         const getWrappedLines = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
             if (!text || text.trim() === '') return [''];
             
-            const lines: string[] = [];
+            const lines: string[][] = [];
             const textBlocks = text.split('\n');
 
             for(const block of textBlocks) {
@@ -309,7 +309,7 @@ export function ExcelProcessorForm() {
         const headerLineHeight = 12;
         const rowLineHeight = 11;
         const headerSize = 7;
-        const rowSize = 6;
+        const rowSize = 5.8;
         const availableWidth = width - 2 * pageLayout.margin;
         
         const columnsToSum = ['Cant. In', 'Costo Uni', 'PVP S/IVA', 'Costo total', 'PVP Total', 'Valor a Pagar', 'Utilidad'];
@@ -331,7 +331,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [55, 50, 180, 50, 75, 150, 45, 45, 50, 50, 50, 50, 45];
+        const columnWidths = [40, 30, 200, 55, 75, 225, 45, 45, 50, 50, 50, 50, 20];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
