@@ -177,12 +177,14 @@ export function ExcelProcessorForm() {
       const docWorksheet = docWorkbook.Sheets[docSheetName];
       const docData: any[][] = XLSX.utils.sheet_to_json(docWorksheet, { header: 1 });
 
-      const docHeaderRowIndex = docData.findIndex(row => 
-        Array.isArray(row) && 
-        row.some(cell => typeof cell === 'string' && cell.trim().toUpperCase() === 'EBELN')
-      );
+      const docHeaderRowIndex = docData.findIndex(row => {
+        if (!Array.isArray(row)) return false;
+        const upperCaseCells = row.map(cell => String(cell || '').trim().toUpperCase());
+        return upperCaseCells.includes('EBELN') && upperCaseCells.includes('BELNR');
+      });
+
       if (docHeaderRowIndex === -1) {
-          throw new Error("No se encontró la fila de encabezado con 'EBELN' en el archivo de documentos.");
+          throw new Error("No se encontró la fila de encabezado con 'EBELN' y 'BELNR' en el archivo de documentos.");
       }
       const docHeaders = docData[docHeaderRowIndex].map(h => String(h || '').trim().toUpperCase());
       const ebelnColIndex = docHeaders.indexOf("EBELN");
@@ -225,7 +227,7 @@ export function ExcelProcessorForm() {
           x: pageLayout.margin,
           y,
           font: helveticaBoldFont,
-          size: 12,
+          size: 10,
         });
       };
       
