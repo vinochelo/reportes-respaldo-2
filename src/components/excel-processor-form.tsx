@@ -248,8 +248,8 @@ export function ExcelProcessorForm() {
         const valueColumns = ['Cant. In','Costo Uni','PVP S/IVA','% Utilidad', 'Costo total', 'PVP Total', 'Valor a Pagar'];
         
         const upperHeaders = headers.map(h => String(h || '').trim().replace(/\.?$/, '').toUpperCase());
-        const sumIndices = columnsToSum.map(colName => upperHeaders.indexOf(colName.toUpperCase())).filter(i => i !== -1);
-        const avgIndices = columnsToAverage.map(colName => upperHeaders.indexOf(colName.toUpperCase())).filter(i => i !== -1);
+        const sumIndices = columnsToSum.map(colName => upperHeaders.indexOf(colName.toUpperCase().replace(/\.?$/, ''))).filter(i => i !== -1);
+        const avgIndices = columnsToAverage.map(colName => upperHeaders.indexOf(colName.toUpperCase().replace(/\.?$/, ''))).filter(i => i !== -1);
 
         const totals = new Array(headers.length).fill(0);
         const avgTotals = new Array(headers.length).fill(0);
@@ -262,7 +262,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [65, 55, 270, 55, 50, 210, 45, 55, 55, 45, 50, 50, 40];
+        const columnWidths = [80, 55, 255, 55, 50, 200, 45, 55, 55, 45, 50, 50, 40];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -339,7 +339,7 @@ export function ExcelProcessorForm() {
             });
             currentY -= rowHeight;
             
-            // Draw grid lines for the row
+            // Draw vertical grid lines for the row
             const rowBottomY = currentY + 2;
             let vLineX = pageLayout.margin;
             for(let i=0; i <= scaledWidths.length; i++) {
@@ -357,22 +357,26 @@ export function ExcelProcessorForm() {
         
         headers.forEach((h, i) => {
             let textToDraw = '';
+            let specialSize = rowSize;
             
             if (sumIndices.includes(i)) {
                  textToDraw = totals[i].toFixed(2);
+                 if (String(h || '').trim().replace(/\.?$/, '').toUpperCase() === 'COSTO TOTAL') {
+                    specialSize = rowSize + 1; // Make it bigger
+                 }
             } else if (avgIndices.includes(i) && avgCounts[i] > 0) {
                  const average = avgTotals[i] / avgCounts[i];
-                 textToDraw = average.toFixed(2) + '%';
+                 textToDraw = average.toFixed(2);
             }
 
             if (textToDraw) {
                 const isCenterAligned = centerAlignedIndices.includes(i);
-                const textWidth = helveticaBoldFont.widthOfTextAtSize(textToDraw, rowSize);
+                const textWidth = helveticaBoldFont.widthOfTextAtSize(textToDraw, specialSize);
                 let xPos = summaryX + 3;
                 if (isCenterAligned) {
                     xPos = summaryX + (scaledWidths[i] - textWidth) / 2;
                 }
-                page.drawText(textToDraw, { x: xPos, y: currentY - 4, font: helveticaBoldFont, size: rowSize });
+                page.drawText(textToDraw, { x: xPos, y: currentY - 4, font: helveticaBoldFont, size: specialSize });
             }
             summaryX += scaledWidths[i];
         });
