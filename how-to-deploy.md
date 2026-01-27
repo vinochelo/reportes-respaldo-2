@@ -1,6 +1,6 @@
 # Cómo Subir tu Proyecto a GitHub
 
-Esta guía te muestra cómo subir tu código al repositorio `vinochelo/reportesrespaldo`.
+Esta guía te muestra cómo subir tu código al repositorio `vinochelo/reportes-respaldo-2`.
 
 ## Opción 1: Usando el Script (Recomendado)
 
@@ -36,7 +36,7 @@ git commit -m "Initial commit"
 git branch -M main
 
 # 5. Conecta tu repositorio local con el que creaste en GitHub
-git remote add origin https://github.com/vinochelo/reportesrespaldo.git
+git remote add origin https://github.com/vinochelo/reportes-respaldo-2.git
 
 # 6. Sube tu código a GitHub
 git push -u origin main

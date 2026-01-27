@@ -5,7 +5,7 @@
 #
 # INSTRUCCIONES:
 # Este script ya está configurado para subir tu código a:
-# https://github.com/vinochelo/reportesrespaldo.git
+# https://github.com/vinochelo/reportes-respaldo-2.git
 #
 # 1. Abre tu terminal en la raíz del proyecto.
 # 2. Da permisos de ejecución al script con el comando: chmod +x how-to-deploy.sh
@@ -16,7 +16,7 @@
 
 # Datos del repositorio
 GITHUB_USER="vinochelo"
-GITHUB_REPO="reportesrespaldo"
+GITHUB_REPO="reportes-respaldo-2"
 
 # --- NO MODIFICAR DEBAJO DE ESTA LÍNEA ---
 
