@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -499,7 +498,7 @@ export function ExcelProcessorForm() {
                  textToDraw = totals[i].toFixed(2);
                  const normalizedHeader = String(h || '').trim().replace(/\.?$/, '').toUpperCase();
                  if (normalizedHeader === 'COSTO TOTAL') {
-                    specialSize = rowSize + 1;
+                    specialSize = rowSize + 2;
                  }
             } else if (avgIndices.includes(i) && avgCounts[i] > 0) {
                  const average = avgTotals[i] / avgCounts[i];
@@ -728,3 +727,4 @@ export function ExcelProcessorForm() {
     
 
     
+ 
