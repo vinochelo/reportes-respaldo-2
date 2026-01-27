@@ -227,15 +227,6 @@ export function ExcelProcessorForm() {
           font: helveticaBoldFont,
           size: 14,
         });
-        const today = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: '2-digit', day: '2-digit' });
-        const dateText = `Fecha de Ejecución: ${today}`;
-        
-        page.drawText(dateText, {
-          x: pageLayout.margin,
-          y: y - 15,
-          font: helveticaFont,
-          size: 10,
-        });
       };
       
       let currentPage = pdfDoc.addPage(pageLayout.size);
@@ -249,14 +240,7 @@ export function ExcelProcessorForm() {
         const headerSize = 7;
         const rowSize = 7;
         const availableWidth = width - 2 * pageLayout.margin;
-
-        // Sub-header for the specific document/PO
-        page.drawText(`Ord. de Compra: ${ebeln}`, { x: pageLayout.margin, y: currentY, font: helveticaBoldFont, size: 9 });
-        const docText = `Documento: ${belnr}`;
-        const docWidth = helveticaBoldFont.widthOfTextAtSize(docText, 9);
-        page.drawText(docText, { x: width - pageLayout.margin - docWidth, y: currentY, font: helveticaBoldFont, size: 9 });
-        currentY -= 20;
-
+        
         const sumColumns = ['Cant. In.','Costo Uni.','PVP S/IVA.','Costo total', 'PVP Total', 'Valor a Pagar'];
         const sumTotals = new Array(headers.length).fill(0);
         const sumColumnIndices: number[] = [];
@@ -292,12 +276,6 @@ export function ExcelProcessorForm() {
                 page = pdfDoc.addPage(pageLayout.size);
                 drawPageHeader(page);
                 currentY = height - pageLayout.margin - 40;
-
-                page.drawText(`Ord. de Compra: ${ebeln} (cont.)`, { x: pageLayout.margin, y: currentY, font: helveticaBoldFont, size: 9 });
-                const docTextCont = `Documento: ${belnr}`;
-                const docWidthCont = helveticaBoldFont.widthOfTextAtSize(docTextCont, 9);
-                page.drawText(docTextCont, { x: width - pageLayout.margin - docWidthCont, y: currentY, font: helveticaBoldFont, size: 9 });
-                currentY -= 20;
 
                 let newX = pageLayout.margin;
                 page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(0.22, 0.45, 0.70) });
@@ -344,28 +322,21 @@ export function ExcelProcessorForm() {
         return { finalY: currentY, finalPage: page };
       };
 
-      for (const belnr of sortedBelnrs) {
+      for (const [index, belnr] of sortedBelnrs.entries()) {
         const ebeln = belnrToEbelnMap.get(belnr);
         if (!ebeln) continue;
         const poData = groupedByPurchaseOrder[ebeln];
         if (!poData || poData.length === 0) continue;
 
-        const estimatedHeight = (poData.length + 3) * 15 + 60;
-        if (y < pageLayout.margin + estimatedHeight) {
-            currentPage = pdfDoc.addPage(pageLayout.size);
-            drawPageHeader(currentPage);
-            y = height - pageLayout.margin - 40;
+        if (index > 0) {
+          currentPage = pdfDoc.addPage(pageLayout.size);
+          drawPageHeader(currentPage);
         }
+        
+        y = height - pageLayout.margin - 40;
 
-        const { finalY, finalPage } = drawTable(currentPage, comprasHeaders, poData, y, ebeln, belnr);
+        const { finalPage } = drawTable(currentPage, comprasHeaders, poData, y, ebeln, belnr);
         currentPage = finalPage;
-        y = finalY;
-        y -= 20; // Space between tables
-        if (y < pageLayout.margin + 50) { // check if there is enough space for the next table header
-            currentPage = pdfDoc.addPage(pageLayout.size);
-            drawPageHeader(currentPage);
-            y = height - pageLayout.margin - 40;
-        }
       }
 
       const pdfBytes = await pdfDoc.save();
