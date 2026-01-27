@@ -247,12 +247,25 @@ export function ExcelProcessorForm() {
         const sumTotals = new Array(headers.length).fill(0);
         const sumColumnIndices: number[] = [];
         headers.forEach((h, i) => {
-            if (sumColumns.map(sc => sc.toUpperCase()).includes(h.toUpperCase())) {
+            if (sumColumns.map(sc => sc.toUpperCase()).includes(String(h || '').toUpperCase())) {
                 sumColumnIndices.push(i);
             }
         });
 
-        const columnWidths = [70, 70, 150, 70, 90, 160, 40, 50, 50, 40, 65, 65, 70];
+        const utilidadHeader = '% UTILIDAD';
+        const utilidadColIndex = headers.findIndex(h => String(h || '').toUpperCase() === utilidadHeader.toUpperCase());
+        let utilidadSum = 0;
+        let utilidadCount = 0;
+
+        const rightAlignedColumns = ['Cant. In.','Costo Uni.','PVP S/IVA.','% Utilidad','Costo total', 'PVP Total', 'Valor a Pagar'];
+        const rightAlignedIndices: number[] = [];
+        headers.forEach((h, i) => {
+            if (rightAlignedColumns.map(sc => sc.toUpperCase()).includes(String(h || '').toUpperCase())) {
+                rightAlignedIndices.push(i);
+            }
+        });
+        
+        const columnWidths = [65, 65, 150, 65, 85, 180, 45, 55, 55, 45, 60, 60, 60];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -304,13 +317,29 @@ export function ExcelProcessorForm() {
                 } else {
                     cellValue = String(cell === null || cell === undefined ? '' : cell);
                 }
+                
+                const isRightAligned = rightAlignedIndices.includes(i);
+                let xPos = cellX + 3;
 
-                page.drawText(cellValue, { x: cellX + 3, y: currentY - 9, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+                if (isRightAligned) {
+                    const textWidth = helveticaFont.widthOfTextAtSize(cellValue, rowSize);
+                    xPos = cellX + scaledWidths[i] - textWidth - 3;
+                }
+
+                page.drawText(cellValue, { x: xPos, y: currentY - 9, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+
                 if (sumColumnIndices.includes(i)) {
                     const numValue = parseFloat(cellValue.toString().replace(/,/g, ''));
                     if (!isNaN(numValue)) {
                         sumTotals[i] += numValue;
                     }
+                }
+                if (i === utilidadColIndex) {
+                  const numValue = parseFloat(cellValue.toString().replace(/,/g, ''));
+                  if (!isNaN(numValue)) {
+                      utilidadSum += numValue;
+                      utilidadCount++;
+                  }
                 }
                 cellX += scaledWidths[i];
             });
@@ -333,12 +362,23 @@ export function ExcelProcessorForm() {
         page.drawText('*', { x: summaryX + 3, y: currentY - 9, font: helveticaBoldFont, size: rowSize });
         
         headers.forEach((h, i) => {
+            let textToDraw = '';
+            const isRightAligned = rightAlignedIndices.includes(i);
+            
             if (sumColumnIndices.includes(i)) {
-                 const totalString = sumTotals[i].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                 page.drawText(totalString, { x: summaryX + 3, y: currentY - 9, font: helveticaBoldFont, size: rowSize });
-            } else if (h.toUpperCase() === '% UTILIDAD' && rows.length > 0) {
-                 const lastUtilidad = String(rows[rows.length - 1][i] || '');
-                 page.drawText(lastUtilidad, { x: summaryX + 3, y: currentY - 9, font: helveticaBoldFont, size: rowSize });
+                 textToDraw = sumTotals[i].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            } else if (i === utilidadColIndex && utilidadCount > 0) {
+                 const utilidadAvg = utilidadSum / utilidadCount;
+                 textToDraw = utilidadAvg.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+
+            if (textToDraw) {
+                let xPos = summaryX + 3;
+                if (isRightAligned) {
+                    const textWidth = helveticaBoldFont.widthOfTextAtSize(textToDraw, rowSize);
+                    xPos = summaryX + scaledWidths[i] - textWidth - 3;
+                }
+                page.drawText(textToDraw, { x: xPos, y: currentY - 9, font: helveticaBoldFont, size: rowSize });
             }
             summaryX += scaledWidths[i];
         });
