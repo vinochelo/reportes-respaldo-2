@@ -318,7 +318,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [50, 55, 145, 60, 85, 190, 40, 50, 55, 45, 50, 50, 70];
+        const columnWidths = [50, 55, 195, 55, 85, 145, 40, 50, 45, 50, 50, 50, 60];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -400,7 +400,7 @@ export function ExcelProcessorForm() {
                     }
                     const yPos = rowTopY - (dynamicRowHeight / 2) - ((lines.length-1) * (rowSize+1)/2) + ((lines.length-1 - lineIndex) * (rowSize+1)) - 1;
 
-                    page.drawText(line, { x: xPos, y: yPos, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+                    page.drawText(line, { x: xPos, y: yPos + (dynamicRowHeight - (rowSize * maxLines))/2 - 1, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
                 });
                 cellX += scaledWidths[i];
             });
