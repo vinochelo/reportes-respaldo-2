@@ -68,7 +68,7 @@ const FileInput: React.FC<FileInputProps> = ({
     <div
       className={cn(
         "relative flex flex-col items-center justify-center w-full p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
-        file ? "border-primary" : "border-border hover:border-primary/50 bg-card"
+        file ? "border-green-500 bg-green-500/10" : "border-border hover:border-primary/50 bg-card"
       )}
       onClick={() => inputRef.current?.click()}
     >
@@ -81,7 +81,7 @@ const FileInput: React.FC<FileInputProps> = ({
       />
       {file ? (
         <div className="text-center">
-          <div className="text-primary">{icon}</div>
+          <div className="text-green-500">{icon}</div>
           <p className="mt-2 font-semibold text-foreground">{file.name}</p>
           <p className="text-xs text-muted-foreground">
             {Math.round(file.size / 1024)} KB
@@ -273,7 +273,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [80, 55, 150, 65, 80, 260, 45, 55, 55, 45, 50, 50, 40];
+        const columnWidths = [120, 60, 200, 70, 75, 140, 45, 55, 55, 45, 50, 50, 40];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -297,7 +297,14 @@ export function ExcelProcessorForm() {
         
         // Draw Rows
         for (const row of rows) {
+            const rowTopY = currentY + 2;
             if (currentY < pageLayout.margin + rowHeight * 2) { // Need space for row and summary
+                let vLineX = pageLayout.margin;
+                for(let i=0; i <= scaledWidths.length; i++) {
+                    page.drawLine({ start: {x: vLineX, y: rowTopY}, end: {x: vLineX, y: pageLayout.margin}, color: rgb(0, 0, 0), thickness: 0.5});
+                    if (i < scaledWidths.length) vLineX += scaledWidths[i];
+                }
+
                 page = pdfDoc.addPage(pageLayout.size);
                 drawPageHeader(page);
                 currentY = height - pageLayout.margin - 15;
@@ -312,7 +319,6 @@ export function ExcelProcessorForm() {
                 page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
             }
             
-            const rowTopY = currentY + 2;
             let cellX = pageLayout.margin;
             row.forEach((cell, i) => {
                 let cellValue;
@@ -491,14 +497,8 @@ export function ExcelProcessorForm() {
           <div className="text-center space-y-4">
             <PartyPopper className="mx-auto h-12 w-12 text-green-500" />
             <h3 className="text-2xl font-bold">¡Procesamiento Completo!</h3>
-            <p className="text-muted-foreground">Tu nuevo reporte en PDF está listo para descargar.</p>
+            <p className="text-muted-foreground">Tu reporte en PDF se ha descargado automáticamente.</p>
             <div className="flex justify-center gap-4">
-               <Button size="lg" asChild>
-                <a href={downloadUrl!} download="Reporte_Consolidado.pdf">
-                  <Download className="mr-2 h-4 w-4" />
-                  Descargar PDF
-                </a>
-              </Button>
               <Button size="lg" variant="outline" onClick={resetState}>
                 Empezar de Nuevo
               </Button>
