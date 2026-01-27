@@ -246,16 +246,17 @@ export function ExcelProcessorForm() {
         'ORD. DE COMPRA': 70,
         'PROVEEDOR': 65,
         'NOMBRE PROVEEDOR': 200,
-        'MATERIAL': 60,
-        'DESCRIPCIÓN MATERIAL': 250,
+        'MATERIAL': 100,
+        'DESCRIPCION MATERIAL': 250,
         'FECHA INGRESO': 75,
         'CANT. IN': 30,
-        'COSTO UNI': 30,
+        'COSTO UNI': 40,
         'PVP S/IVA': 50,
         'COSTO TOTAL': 50,
         'PVP TOTAL': 50,
         'VALOR A PAGAR': 65,
         'UTILIDAD': 65,
+        '% UTILIDAD': 50,
       };
       const DEFAULT_COLUMN_WIDTH = 50;
       
@@ -721,6 +722,8 @@ export function ExcelProcessorForm() {
     </div>
   );
 }
+
+    
 
     
 
