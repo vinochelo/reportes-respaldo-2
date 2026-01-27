@@ -278,7 +278,7 @@ export function ExcelProcessorForm() {
         })
         let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
-          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 7, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 5, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
           currentX += scaledWidths[i];
         });
         currentY -= rowHeight;
@@ -296,7 +296,7 @@ export function ExcelProcessorForm() {
                 let newX = pageLayout.margin;
                 page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(0.22, 0.45, 0.70) });
                 headers.forEach((header, i) => {
-                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 7, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 5, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
                   newX += scaledWidths[i];
                 });
                 currentY -= rowHeight;
@@ -323,7 +323,7 @@ export function ExcelProcessorForm() {
                     xPos = cellX + (scaledWidths[i] - textWidth) / 2;
                 }
 
-                page.drawText(cellValue, { x: xPos, y: currentY - 7, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+                page.drawText(cellValue, { x: xPos, y: currentY - 5, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
 
                 const numValue = parseFloat(cellValue.replace(/,/g, ''));
                 if (!isNaN(numValue)) {
@@ -354,7 +354,7 @@ export function ExcelProcessorForm() {
         page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 1, color: rgb(0.4, 0.4, 0.4) });
         page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(1, 1, 0.8) }); // Yellow background
         let summaryX = pageLayout.margin;
-        page.drawText('*', { x: summaryX + 3, y: currentY - 7, font: helveticaBoldFont, size: rowSize });
+        page.drawText('*', { x: summaryX + 3, y: currentY - 5, font: helveticaBoldFont, size: rowSize });
         
         headers.forEach((h, i) => {
             let textToDraw = '';
@@ -373,7 +373,7 @@ export function ExcelProcessorForm() {
                 if (isCenterAligned) {
                     xPos = summaryX + (scaledWidths[i] - textWidth) / 2;
                 }
-                page.drawText(textToDraw, { x: xPos, y: currentY - 7, font: helveticaBoldFont, size: rowSize });
+                page.drawText(textToDraw, { x: xPos, y: currentY - 5, font: helveticaBoldFont, size: rowSize });
             }
             summaryX += scaledWidths[i];
         });
