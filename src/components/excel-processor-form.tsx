@@ -2,13 +2,12 @@
 
 import * as React from "react";
 import * as XLSX from "xlsx";
-import { PDFDocument, rgb, StandardFonts, PageSizes } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PageSizes, PDFFont } from "pdf-lib";
 import {
   UploadCloud,
   FileSpreadsheet,
   X,
   Loader2,
-  Download,
   PartyPopper,
   ArrowRight,
   RefreshCw,
@@ -248,10 +247,47 @@ export function ExcelProcessorForm() {
       let y = height - pageLayout.margin - 15;
 
       const drawTable = (page: any, headers: string[], rows: any[][], startY: number, ebeln: string, belnr: string) => {
+        
+        const getWrappedLines = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
+            if (!text || text.trim() === '') return [''];
+            if (font.widthOfTextAtSize(text, size) <= maxWidth) {
+                return [text];
+            }
+
+            const lines: string[] = [];
+            const words = text.split(' ');
+            let currentLine = '';
+
+            for (const word of words) {
+                const testLine = currentLine ? `${currentLine} ${word}` : word;
+                if (font.widthOfTextAtSize(testLine, size) < maxWidth) {
+                    currentLine = testLine;
+                } else {
+                    if (currentLine !== '') lines.push(currentLine);
+                    let tempWord = word;
+                    while (font.widthOfTextAtSize(tempWord, size) > maxWidth) {
+                        let i = tempWord.length - 1;
+                        while (i > 0 && font.widthOfTextAtSize(tempWord.substring(0, i), size) > maxWidth) {
+                            i--;
+                        }
+                        if (i > 0) {
+                            lines.push(tempWord.substring(0, i));
+                            tempWord = tempWord.substring(i);
+                        } else {
+                            break; 
+                        }
+                    }
+                    currentLine = tempWord;
+                }
+            }
+            if (currentLine !== '') lines.push(currentLine);
+            return lines.length > 0 ? lines : [''];
+        };
+
         let currentY = startY;
-        const rowHeight = 9;
-        const headerSize = 5;
-        const rowSize = 5;
+        const lineHeight = 12;
+        const headerSize = 7;
+        const rowSize = 7;
         const availableWidth = width - 2 * pageLayout.margin;
         
         const columnsToSum = ['Cant. In', 'Costo Uni', 'PVP S/IVA', 'Costo total', 'PVP Total', 'Valor a Pagar', 'Utilidad'];
@@ -273,7 +309,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [120, 60, 200, 70, 75, 140, 45, 55, 55, 45, 50, 50, 40];
+        const columnWidths = [120, 70, 200, 70, 75, 140, 45, 55, 55, 45, 50, 50, 40];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -281,24 +317,39 @@ export function ExcelProcessorForm() {
         // Draw Header
         page.drawRectangle({
           x: pageLayout.margin,
-          y: currentY - rowHeight + 2,
+          y: currentY - lineHeight + 2,
           width: availableWidth,
-          height: rowHeight,
+          height: lineHeight,
           color: rgb(0.22, 0.45, 0.70), // Blue background
         })
         let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
-          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 4, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - (lineHeight/2) - (headerSize/2) + 2 , font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
           currentX += scaledWidths[i];
         });
-        currentY -= rowHeight;
+        currentY -= lineHeight;
         page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
 
         
         // Draw Rows
         for (const row of rows) {
+            const rowCellLines: string[][] = row.map((cell, i) => {
+                let cellValue;
+                if (cell instanceof Date) {
+                    const day = String(cell.getDate()).padStart(2, '0');
+                    const month = String(cell.getMonth() + 1).padStart(2, '0');
+                    const year = cell.getFullYear();
+                    cellValue = `${month}/${year}`;
+                } else {
+                    cellValue = String(cell === null || cell === undefined ? '' : cell);
+                }
+                return getWrappedLines(cellValue, helveticaFont, rowSize, scaledWidths[i] - 6);
+            });
+            const maxLines = Math.max(1, ...rowCellLines.map(lines => lines.length));
+            const dynamicRowHeight = maxLines * lineHeight;
             const rowTopY = currentY + 2;
-            if (currentY < pageLayout.margin + rowHeight * 2) { // Need space for row and summary
+            
+            if (currentY < pageLayout.margin + dynamicRowHeight) { 
                 let vLineX = pageLayout.margin;
                 for(let i=0; i <= scaledWidths.length; i++) {
                     page.drawLine({ start: {x: vLineX, y: rowTopY}, end: {x: vLineX, y: pageLayout.margin}, color: rgb(0, 0, 0), thickness: 0.5});
@@ -310,37 +361,32 @@ export function ExcelProcessorForm() {
                 currentY = height - pageLayout.margin - 15;
 
                 let newX = pageLayout.margin;
-                page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(0.22, 0.45, 0.70) });
+                page.drawRectangle({ x: pageLayout.margin, y: currentY - lineHeight + 2, width: availableWidth, height: lineHeight, color: rgb(0.22, 0.45, 0.70) });
                 headers.forEach((header, i) => {
-                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 4, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - (lineHeight/2) - (headerSize/2) + 2, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
                   newX += scaledWidths[i];
                 });
-                currentY -= rowHeight;
+                currentY -= lineHeight;
                 page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
             }
             
             let cellX = pageLayout.margin;
-            row.forEach((cell, i) => {
-                let cellValue;
-                if (cell instanceof Date) {
-                    const day = String(cell.getDate()).padStart(2, '0');
-                    const month = String(cell.getMonth() + 1).padStart(2, '0');
-                    const year = cell.getFullYear();
-                    cellValue = `${day}/${month}/${year}`;
-                } else {
-                    cellValue = String(cell === null || cell === undefined ? '' : cell);
-                }
-                
+            rowCellLines.forEach((lines, i) => {
                 const isCenterAligned = centerAlignedIndices.includes(i);
-                const textWidth = helveticaFont.widthOfTextAtSize(cellValue, rowSize);
-                let xPos = cellX + 3; // Default left alignment
+                lines.forEach((line, lineIndex) => {
+                    const textWidth = helveticaFont.widthOfTextAtSize(line, rowSize);
+                    let xPos = cellX + 3;
+                    if (isCenterAligned) {
+                        xPos = cellX + (scaledWidths[i] - textWidth) / 2;
+                    }
+                    const yPos = currentY - (lineHeight / 2) - (rowSize / 2) + 2 - (lineIndex * lineHeight);
+                    page.drawText(line, { x: xPos, y: yPos, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+                });
+                cellX += scaledWidths[i];
+            });
 
-                if (isCenterAligned) {
-                    xPos = cellX + (scaledWidths[i] - textWidth) / 2;
-                }
-
-                page.drawText(cellValue, { x: xPos, y: currentY - 4, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
-
+            row.forEach((cell, i) => {
+                const cellValue = String(cell === null || cell === undefined ? '' : cell);
                 const numValue = parseFloat(cellValue.replace(/,/g, ''));
                 if (!isNaN(numValue)) {
                     if (sumIndices.includes(i)) {
@@ -351,19 +397,17 @@ export function ExcelProcessorForm() {
                         avgCounts[i]++;
                     }
                 }
-                cellX += scaledWidths[i];
             });
-            currentY -= rowHeight;
 
-            // Draw horizontal line for the row
+            currentY -= dynamicRowHeight;
+
             page.drawLine({
               start: { x: pageLayout.margin, y: currentY + 2 },
               end: { x: width - pageLayout.margin, y: currentY + 2 },
-              color: rgb(0.85, 0.85, 0.85), // Light Gray
+              color: rgb(0.85, 0.85, 0.85),
               thickness: 0.5
             });
             
-            // Draw vertical grid lines for the row
             const rowBottomY = currentY + 2;
             let vLineX = pageLayout.margin;
             for(let i=0; i <= scaledWidths.length; i++) {
@@ -375,9 +419,9 @@ export function ExcelProcessorForm() {
         // Draw summary row
         const summaryTopY = currentY + 2;
         page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 1, color: rgb(0, 0, 0) });
-        page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(1, 1, 0.8) }); // Yellow background
+        page.drawRectangle({ x: pageLayout.margin, y: currentY - lineHeight + 2, width: availableWidth, height: lineHeight, color: rgb(1, 1, 0.8) }); // Yellow background
         let summaryX = pageLayout.margin;
-        page.drawText('*', { x: summaryX + 3, y: currentY - 4, font: helveticaBoldFont, size: rowSize });
+        page.drawText('*', { x: summaryX + 3, y: currentY - (lineHeight/2) - (rowSize/2) + 2, font: helveticaBoldFont, size: rowSize });
         
         headers.forEach((h, i) => {
             let textToDraw = '';
@@ -400,11 +444,11 @@ export function ExcelProcessorForm() {
                 if (isCenterAligned) {
                     xPos = summaryX + (scaledWidths[i] - textWidth) / 2;
                 }
-                page.drawText(textToDraw, { x: xPos, y: currentY - 4, font: helveticaBoldFont, size: specialSize });
+                page.drawText(textToDraw, { x: xPos, y: currentY - (lineHeight/2) - (specialSize/2) + 2, font: helveticaBoldFont, size: specialSize });
             }
             summaryX += scaledWidths[i];
         });
-        currentY -= rowHeight;
+        currentY -= lineHeight;
         
         const summaryBottomY = currentY + 2;
         page.drawLine({ start: { x: pageLayout.margin, y: summaryBottomY }, end: { x: width - pageLayout.margin, y: summaryBottomY }, thickness: 0.5, color: rgb(0, 0, 0) });
@@ -542,7 +586,7 @@ export function ExcelProcessorForm() {
                   <strong>Generación de PDF:</strong> Se crea un único documento PDF. El reporte está organizado por número de documento, y cada sección contiene la tabla de artículos de la orden de compra asociada.
                 </li>
                 <li>
-                  <strong>Descarga:</strong> Finalmente, se te proporciona un enlace para descargar el PDF consolidado.
+                  <strong>Descarga:</strong> Finalmente, tu PDF consolidado se descarga automáticamente.
                 </li>
               </ol>
             </AccordionContent>
