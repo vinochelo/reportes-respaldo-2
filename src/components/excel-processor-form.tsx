@@ -239,23 +239,20 @@ export function ExcelProcessorForm() {
       const drawTable = (page: any, headers: string[], rows: any[][], startY: number, ebeln: string, belnr: string) => {
         let currentY = startY;
         const rowHeight = 15;
-        const headerSize = 7;
-        const rowSize = 7;
+        const headerSize = 6;
+        const rowSize = 6;
         const availableWidth = width - 2 * pageLayout.margin;
         
-        const sumColumns = ['Cant. In.','Costo Uni.','PVP S/IVA.','Costo total', 'PVP Total', 'Valor a Pagar'];
-        const sumTotals = new Array(headers.length).fill(0);
-        const sumColumnIndices: number[] = [];
-        headers.forEach((h, i) => {
-            if (sumColumns.map(sc => sc.toUpperCase()).includes(String(h || '').toUpperCase())) {
-                sumColumnIndices.push(i);
-            }
-        });
+        const columnsToSum = ['Cant. In.', 'Costo Uni.', 'PVP S/IVA.', 'Costo total', 'PVP Total', 'Valor a Pagar'];
+        const columnToAverage = '% Utilidad';
 
-        const utilidadHeader = '% UTILIDAD';
-        const utilidadColIndex = headers.findIndex(h => String(h || '').toUpperCase() === utilidadHeader.toUpperCase());
-        let utilidadSum = 0;
-        let utilidadCount = 0;
+        const upperHeaders = headers.map(h => String(h || '').trim().toUpperCase());
+        const sumIndices = columnsToSum.map(colName => upperHeaders.indexOf(colName.toUpperCase())).filter(i => i !== -1);
+        const avgIndex = upperHeaders.indexOf(columnToAverage.toUpperCase());
+
+        const totals = new Array(headers.length).fill(0);
+        let avgSum = 0;
+        let avgCount = 0;
 
         const rightAlignedColumns = ['Cant. In.','Costo Uni.','PVP S/IVA.','% Utilidad','Costo total', 'PVP Total', 'Valor a Pagar'];
         const rightAlignedIndices: number[] = [];
@@ -265,7 +262,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [65, 65, 150, 65, 85, 180, 45, 55, 55, 45, 60, 60, 60];
+        const columnWidths = [65, 65, 180, 65, 85, 150, 45, 55, 55, 45, 60, 60, 55];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -328,18 +325,15 @@ export function ExcelProcessorForm() {
 
                 page.drawText(cellValue, { x: xPos, y: currentY - 9, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
 
-                if (sumColumnIndices.includes(i)) {
-                    const numValue = parseFloat(cellValue.toString().replace(/,/g, ''));
-                    if (!isNaN(numValue)) {
-                        sumTotals[i] += numValue;
+                const numValue = parseFloat(cellValue.replace(/,/g, ''));
+                if (!isNaN(numValue)) {
+                    if (sumIndices.includes(i)) {
+                        totals[i] += numValue;
                     }
-                }
-                if (i === utilidadColIndex) {
-                  const numValue = parseFloat(cellValue.toString().replace(/,/g, ''));
-                  if (!isNaN(numValue)) {
-                      utilidadSum += numValue;
-                      utilidadCount++;
-                  }
+                    if (i === avgIndex) {
+                        avgSum += numValue;
+                        avgCount++;
+                    }
                 }
                 cellX += scaledWidths[i];
             });
@@ -363,16 +357,16 @@ export function ExcelProcessorForm() {
         
         headers.forEach((h, i) => {
             let textToDraw = '';
-            const isRightAligned = rightAlignedIndices.includes(i);
             
-            if (sumColumnIndices.includes(i)) {
-                 textToDraw = sumTotals[i].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            } else if (i === utilidadColIndex && utilidadCount > 0) {
-                 const utilidadAvg = utilidadSum / utilidadCount;
-                 textToDraw = utilidadAvg.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (sumIndices.includes(i)) {
+                 textToDraw = totals[i].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            } else if (i === avgIndex && avgCount > 0) {
+                 const average = avgSum / avgCount;
+                 textToDraw = average.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             }
 
             if (textToDraw) {
+                const isRightAligned = rightAlignedIndices.includes(i);
                 let xPos = summaryX + 3;
                 if (isRightAligned) {
                     const textWidth = helveticaBoldFont.widthOfTextAtSize(textToDraw, rowSize);
