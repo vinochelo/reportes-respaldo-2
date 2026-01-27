@@ -318,7 +318,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [60, 65, 120, 60, 85, 180, 45, 55, 55, 45, 50, 50, 75];
+        const columnWidths = [50, 55, 145, 60, 85, 190, 40, 50, 55, 45, 50, 50, 70];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -333,8 +333,17 @@ export function ExcelProcessorForm() {
         })
         let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
-          const textY = currentY - (headerLineHeight / 2) - (headerSize / 2) + 2;
-          page.drawText(String(header || ''), { x: currentX + 3, y: textY , font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+          const headerText = String(header || '');
+          const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
+          let currentHeaderSize = headerSize;
+          
+          const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI'];
+          if (smallHeaders.includes(normalizedHeaderText)) {
+            currentHeaderSize = 6;
+          }
+
+          const textY = currentY - (headerLineHeight / 2) - (currentHeaderSize / 2) + 2;
+          page.drawText(headerText, { x: currentX + 3, y: textY , font: helveticaBoldFont, size: currentHeaderSize, color: rgb(1,1,1) });
           currentX += scaledWidths[i];
         });
         currentY -= headerLineHeight;
@@ -364,8 +373,15 @@ export function ExcelProcessorForm() {
                 let newX = pageLayout.margin;
                 page.drawRectangle({ x: pageLayout.margin, y: currentY - headerLineHeight, width: availableWidth, height: headerLineHeight, color: rgb(0.22, 0.45, 0.70) });
                 headers.forEach((header, i) => {
-                  const textY = currentY - (headerLineHeight / 2) - (headerSize / 2) + 2;
-                  page.drawText(String(header || ''), { x: newX + 3, y: textY, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+                  const headerText = String(header || '');
+                  const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
+                  let currentHeaderSize = headerSize;
+                  const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI'];
+                  if (smallHeaders.includes(normalizedHeaderText)) {
+                    currentHeaderSize = 6;
+                  }
+                  const textY = currentY - (headerLineHeight / 2) - (currentHeaderSize / 2) + 2;
+                  page.drawText(String(header || ''), { x: newX + 3, y: textY, font: helveticaBoldFont, size: currentHeaderSize, color: rgb(1,1,1) });
                   newX += scaledWidths[i];
                 });
                 currentY -= headerLineHeight;
@@ -404,15 +420,15 @@ export function ExcelProcessorForm() {
             });
 
             currentY -= dynamicRowHeight;
-
+            
+            const rowBottomY = currentY;
             page.drawLine({
-              start: { x: pageLayout.margin, y: currentY },
-              end: { x: width - pageLayout.margin, y: currentY },
+              start: { x: pageLayout.margin, y: rowBottomY },
+              end: { x: width - pageLayout.margin, y: rowBottomY },
               color: rgb(0.8, 0.8, 0.8),
               thickness: 0.5
             });
             
-            const rowBottomY = currentY;
             let vLineX = pageLayout.margin;
             for(let i=0; i <= scaledWidths.length; i++) {
                 page.drawLine({ start: {x: vLineX, y: rowTopY}, end: {x: vLineX, y: rowBottomY}, color: rgb(0, 0, 0), thickness: 0.5});
@@ -433,7 +449,8 @@ export function ExcelProcessorForm() {
             
             if (sumIndices.includes(i)) {
                  textToDraw = totals[i].toFixed(2);
-                 if (String(h || '').trim().replace(/\.?$/, '').toUpperCase() === 'COSTO TOTAL') {
+                 const normalizedHeader = String(h || '').trim().replace(/\.?$/, '').toUpperCase();
+                 if (normalizedHeader === 'COSTO TOTAL') {
                     specialSize = rowSize + 1;
                  }
             } else if (avgIndices.includes(i) && avgCounts[i] > 0) {
