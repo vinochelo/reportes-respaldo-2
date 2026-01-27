@@ -295,7 +295,7 @@ export function ExcelProcessorForm() {
         const headerLineHeight = 12;
         const rowLineHeight = 11;
         const headerSize = 7;
-        const rowSize = 6.5;
+        const rowSize = 6;
         const availableWidth = width - 2 * pageLayout.margin;
         
         const columnsToSum = ['Cant. In', 'Costo Uni', 'PVP S/IVA', 'Costo total', 'PVP Total', 'Valor a Pagar', 'Utilidad'];
@@ -317,7 +317,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [60, 55, 195, 55, 85, 145, 40, 50, 45, 50, 50, 50, 50];
+        const columnWidths = [65, 55, 135, 55, 60, 205, 40, 50, 45, 50, 50, 50, 45];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
