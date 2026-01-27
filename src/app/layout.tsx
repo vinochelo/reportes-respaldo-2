@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Rocku | Generador de Reportes PDF',
+  title: 'Etafashion RM | Generador de Reportes PDF',
   description: 'Procesa y agrupa tus reportes de Excel para generar un PDF consolidado.',
 };
 

@@ -16,7 +16,7 @@ export default function Home() {
       <div className="mx-auto w-full max-w-3xl space-y-8">
         <div className="text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl">
-            <span className="font-light">ROCKU</span>
+            <span className="font-light">ETAFASHION</span> RM
           </h1>
           <p className="mt-4 text-xl text-muted-foreground">
             Generador de Reportes PDF
