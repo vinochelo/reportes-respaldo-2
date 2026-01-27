@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Etafashion RM | Procesador de Reportes',
-  description: 'Procesa y agrupa tus reportes de Excel por orden de compra.',
+  title: 'Etafashion RM | Generador de Reportes PDF',
+  description: 'Procesa y agrupa tus reportes de Excel para generar un PDF consolidado.',
 };
 
 export default function RootLayout({

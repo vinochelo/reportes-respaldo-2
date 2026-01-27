@@ -19,7 +19,7 @@ export default function Home() {
             <span className="font-light">ETAFASHION</span> <span className="text-destructive">RM</span>
           </h1>
           <p className="mt-4 text-xl text-muted-foreground">
-            Procesador de Reportes de Compras
+            Generador de Reportes PDF
           </p>
         </div>
         <Card className="shadow-lg">

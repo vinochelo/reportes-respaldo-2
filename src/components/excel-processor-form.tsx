@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import * as XLSX from "xlsx";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -12,6 +13,7 @@ import {
   ArrowRight,
   RefreshCw,
   HelpCircle,
+  FileText,
 } from "lucide-react";
 
 import {
@@ -105,25 +107,27 @@ const FileInput: React.FC<FileInputProps> = ({
 };
 
 export function ExcelProcessorForm() {
-  const [excelFile, setExcelFile] = React.useState<File | null>(null);
+  const [comprasFile, setComprasFile] = React.useState<File | null>(null);
+  const [documentosFile, setDocumentosFile] = React.useState<File | null>(null);
   const [status, setStatus] = React.useState<Status>("idle");
   const [progressMessage, setProgressMessage] = React.useState("");
   const [downloadUrl, setDownloadUrl] = React.useState<string | null>(null);
   const { toast } = useToast();
 
   const resetState = () => {
-    setExcelFile(null);
+    setComprasFile(null);
+    setDocumentosFile(null);
     setStatus("idle");
     setProgressMessage("");
     setDownloadUrl(null);
   };
   
   const handleProcess = async () => {
-    if (!excelFile) {
+    if (!comprasFile || !documentosFile) {
       toast({
         variant: "destructive",
-        title: "Archivo Faltante",
-        description: "Por favor, sube un archivo de Excel.",
+        title: "Archivos Faltantes",
+        description: "Por favor, sube ambos reportes.",
       });
       return;
     }
@@ -131,28 +135,23 @@ export function ExcelProcessorForm() {
     setStatus("processing");
 
     try {
-      setProgressMessage("Leyendo archivo de Excel...");
-      const excelBuffer = await excelFile.arrayBuffer();
-      const workbook = XLSX.read(excelBuffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-      const headerRowIndex = data.findIndex(row => Array.isArray(row) && row.includes("Ord. de Compra"));
-      if (headerRowIndex === -1) {
-        throw new Error("No se encontró la fila de encabezado con 'Ord. de Compra'.");
-      }
+      // 1. Process "Reporte de Compras"
+      setProgressMessage("Leyendo reporte de compras...");
+      const comprasBuffer = await comprasFile.arrayBuffer();
+      const comprasWorkbook = XLSX.read(comprasBuffer, { type: "buffer" });
+      const comprasSheetName = comprasWorkbook.SheetNames[0];
+      const comprasWorksheet = comprasWorkbook.Sheets[comprasSheetName];
+      const comprasData: any[][] = XLSX.utils.sheet_to_json(comprasWorksheet, { header: 1 });
       
-      const headers = data[headerRowIndex];
-      const purchaseOrderColIndex = headers.indexOf("Ord. de Compra");
-      if (purchaseOrderColIndex === -1) {
-        // This case should be covered by the headerRowIndex check, but it's good practice.
-        throw new Error("No se encontró la columna 'Ord. de Compra' en el archivo.");
+      const comprasHeaderRowIndex = comprasData.findIndex(row => Array.isArray(row) && row.includes("Ord. de Compra"));
+      if (comprasHeaderRowIndex === -1) {
+        throw new Error("No se encontró la fila de encabezado con 'Ord. de Compra' en el reporte de compras.");
       }
-
-      setProgressMessage("Agrupando por orden de compra...");
-      const dataRows = data.slice(headerRowIndex + 1);
-      const groupedByPurchaseOrder = dataRows.reduce((acc, row) => {
+      const comprasHeaders = comprasData[comprasHeaderRowIndex];
+      const purchaseOrderColIndex = comprasHeaders.indexOf("Ord. de Compra");
+      
+      const comprasDataRows = comprasData.slice(comprasHeaderRowIndex + 1);
+      const groupedByPurchaseOrder = comprasDataRows.reduce((acc, row) => {
         const poNumber = row[purchaseOrderColIndex];
         if (poNumber) {
           const poString = String(poNumber);
@@ -164,31 +163,119 @@ export function ExcelProcessorForm() {
         return acc;
       }, {} as Record<string, any[][]>);
 
-      if (Object.keys(groupedByPurchaseOrder).length === 0) {
-        setStatus("error");
-        toast({
-            variant: "destructive",
-            title: "No se Encontraron Datos",
-            description: "No se encontraron órdenes de compra para procesar en el archivo Excel.",
-        });
-        return;
+      // 2. Process "Reporte de Documentos" (EKBE)
+      setProgressMessage("Leyendo reporte de documentos...");
+      const docBuffer = await documentosFile.arrayBuffer();
+      const docWorkbook = XLSX.read(docBuffer); // Let xlsx handle format (HTML table in XLS)
+      const docSheetName = docWorkbook.SheetNames[0];
+      const docWorksheet = docWorkbook.Sheets[docSheetName];
+      const docData: any[][] = XLSX.utils.sheet_to_json(docWorksheet, { header: 1 });
+
+      const docHeaderRowIndex = docData.findIndex(row => Array.isArray(row) && row.includes("EBELN"));
+      if (docHeaderRowIndex === -1) {
+          throw new Error("No se encontró la fila de encabezado con 'EBELN' en el archivo de documentos.");
+      }
+      const docHeaders = docData[docHeaderRowIndex];
+      const ebelnColIndex = docHeaders.indexOf("EBELN");
+      const belnrColIndex = docHeaders.indexOf("BELNR");
+
+      if (ebelnColIndex === -1 || belnrColIndex === -1) {
+          throw new Error("No se encontraron las columnas 'EBELN' o 'BELNR' en el archivo de documentos.");
       }
 
-      setProgressMessage("Generando nuevo archivo Excel...");
-      const newWorkbook = XLSX.utils.book_new();
+      const belnrToEbelnMap = new Map<string, string>();
+      const docDataRows = docData.slice(docHeaderRowIndex + 1);
+      for (const row of docDataRows) {
+          const ebeln = row[ebelnColIndex];
+          const belnr = row[belnrColIndex];
+          if (ebeln && belnr) {
+              belnrToEbelnMap.set(String(belnr), String(ebeln));
+          }
+      }
+
+      if (belnrToEbelnMap.size === 0) {
+        throw new Error("No se encontraron documentos para procesar en el archivo de documentos.");
+      }
+
+      // 3. Generate PDF
+      setProgressMessage("Generando PDF...");
+      const pdfDoc = await PDFDocument.create();
+      const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       
-      for (const purchaseOrder in groupedByPurchaseOrder) {
-        const rowsForPO = groupedByPurchaseOrder[purchaseOrder];
-        const sheetData = [headers, ...rowsForPO];
-        const newSheet = XLSX.utils.aoa_to_sheet(sheetData);
+      const sortedBelnrs = Array.from(belnrToEbelnMap.keys()).sort();
+      let currentPage = pdfDoc.addPage();
+      const { width, height } = currentPage.getSize();
+      const margin = 40;
+      let y = height - margin;
+
+      const drawTable = (page: any, headers: string[], rows: any[][], startY: number) => {
+        let currentY = startY;
+        const rowHeight = 18;
+        const headerSize = 9;
+        const rowSize = 8;
+        const colWidths = headers.map(() => (width - 2 * margin) / headers.length);
         
-        const sanitizedSheetName = purchaseOrder.replace(/[\\/?*[\]]/g, "").substring(0, 31);
-        XLSX.utils.book_append_sheet(newWorkbook, newSheet, sanitizedSheetName);
+        // Draw Header
+        let currentX = margin;
+        headers.forEach((header, i) => {
+          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 12, font: helveticaBoldFont, size: headerSize });
+          currentX += colWidths[i];
+        });
+        currentY -= rowHeight;
+        page.drawLine({ start: { x: margin, y: currentY + 4 }, end: { x: width - margin, y: currentY + 4 }, thickness: 0.5 });
+        
+        // Draw Rows
+        for (const row of rows) {
+            if (currentY < margin + rowHeight) {
+                page = pdfDoc.addPage();
+                currentY = height - margin;
+                // Redraw header on new page
+                let newX = margin;
+                headers.forEach((header, i) => {
+                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 12, font: helveticaBoldFont, size: headerSize });
+                  newX += colWidths[i];
+                });
+                currentY -= rowHeight;
+                page.drawLine({ start: { x: margin, y: currentY + 4 }, end: { x: width - margin, y: currentY + 4 }, thickness: 0.5 });
+            }
+            
+            let cellX = margin;
+            row.forEach((cell, i) => {
+                page.drawText(String(cell || ''), { x: cellX + 3, y: currentY - 12, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+                cellX += colWidths[i];
+            });
+            currentY -= rowHeight;
+        }
+        return { finalY: currentY, finalPage: page };
+      };
+
+      for (const belnr of sortedBelnrs) {
+        const ebeln = belnrToEbelnMap.get(belnr);
+        if (!ebeln) continue;
+        const poData = groupedByPurchaseOrder[ebeln];
+        if (!poData) continue;
+
+        const tableHeight = (poData.length + 1) * 18 + 50; // estimate
+        if (y < margin + tableHeight) {
+            currentPage = pdfDoc.addPage();
+            y = height - margin;
+        }
+
+        y -= 20;
+        currentPage.drawText(`Documento: ${belnr}`, { x: margin, y, font: helveticaBoldFont, size: 14, color: rgb(0,0,0) });
+        y -= 15;
+        currentPage.drawText(`Orden de Compra: ${ebeln}`, { x: margin, y, font: helveticaFont, size: 11, color: rgb(0.3, 0.3, 0.3) });
+        y -= 25;
+
+        const { finalY, finalPage } = drawTable(currentPage, comprasHeaders, poData, y);
+        currentPage = finalPage;
+        y = finalY;
+        y -= 20; // Space between tables
       }
 
-      const newExcelBuffer = XLSX.write(newWorkbook, { bookType: "xlsx", type: "array" });
-
-      const blob = new Blob([newExcelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
       setStatus("success");
@@ -199,7 +286,7 @@ export function ExcelProcessorForm() {
         variant: "destructive",
         title: "Ocurrió un Error",
         description:
-          error instanceof Error ? error.message : "No se pudo procesar el archivo. Por favor, revisa que el formato sea correcto.",
+          error instanceof Error ? error.message : "No se pudo procesar los archivos. Por favor, revisa que el formato sea correcto.",
       });
     }
   };
@@ -211,13 +298,20 @@ export function ExcelProcessorForm() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-center">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FileInput
-          file={excelFile}
-          onFileChange={setExcelFile}
+          file={comprasFile}
+          onFileChange={setComprasFile}
           placeholder="Subir Reporte de Compras"
           accept=".xlsx, .xls"
           icon={<FileSpreadsheet className="h-12 w-12" />}
+        />
+        <FileInput
+          file={documentosFile}
+          onFileChange={setDocumentosFile}
+          placeholder="Subir Reporte Documentos (EKBE)"
+          accept=".xlsx, .xls"
+          icon={<FileText className="h-12 w-12" />}
         />
       </div>
 
@@ -226,9 +320,9 @@ export function ExcelProcessorForm() {
           <Button
             size="lg"
             onClick={handleProcess}
-            disabled={!excelFile}
+            disabled={!comprasFile || !documentosFile}
           >
-            Procesar Reporte <ArrowRight className="ml-2 h-4 w-4" />
+            Generar PDF <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         )}
 
@@ -243,12 +337,12 @@ export function ExcelProcessorForm() {
           <div className="text-center space-y-4">
             <PartyPopper className="mx-auto h-12 w-12 text-green-500" />
             <h3 className="text-2xl font-bold">¡Procesamiento Completo!</h3>
-            <p className="text-muted-foreground">Tu nuevo reporte de Excel está listo para descargar.</p>
+            <p className="text-muted-foreground">Tu nuevo reporte en PDF está listo para descargar.</p>
             <div className="flex justify-center gap-4">
                <Button size="lg" asChild>
-                <a href={downloadUrl!} download="Reporte_Agrupado.xlsx">
+                <a href={downloadUrl!} download="Reporte_Consolidado.pdf">
                   <Download className="mr-2 h-4 w-4" />
-                  Descargar Reporte
+                  Descargar PDF
                 </a>
               </Button>
               <Button size="lg" variant="outline" onClick={resetState}>
@@ -261,7 +355,7 @@ export function ExcelProcessorForm() {
         {isError && (
           <div className="text-center space-y-4">
              <h3 className="text-2xl font-bold text-destructive">¡Uy! Algo salió mal.</h3>
-             <p className="text-muted-foreground">No pudimos procesar tu reporte. Por favor, inténtalo de nuevo.</p>
+             <p className="text-muted-foreground">No pudimos procesar tus reportes. Por favor, inténtalo de nuevo.</p>
              <Button size="lg" onClick={resetState}>
                <RefreshCw className="mr-2 h-4 w-4" />
                Intentar de Nuevo
@@ -282,16 +376,19 @@ export function ExcelProcessorForm() {
             <AccordionContent>
               <ol className="list-decimal space-y-2 pl-6 text-sm text-muted-foreground">
                 <li>
-                  <strong>Subir Archivo:</strong> Carga tu reporte de compras en formato Excel (.xlsx o .xls).
+                  <strong>Subir Reporte de Compras:</strong> Carga tu reporte principal de compras en formato Excel (.xlsx o .xls).
+                </li>
+                 <li>
+                  <strong>Subir Reporte de Documentos:</strong> Carga tu reporte de documentos (EKBE), que puede ser un archivo HTML guardado como .xls.
                 </li>
                 <li>
-                  <strong>Agrupación Automática:</strong> La aplicación lee el archivo, busca la columna "Ord. de Compra" y agrupa todas las filas según el número de orden.
+                  <strong>Enlace de Datos:</strong> La aplicación asocia los números de documento (BELNR) del segundo archivo con sus órdenes de compra (EBELN / Ord. de Compra) correspondientes en el primer archivo.
                 </li>
                 <li>
-                  <strong>Generación del Nuevo Reporte:</strong> Se crea un nuevo archivo de Excel. Cada "Ord. de Compra" única se convierte en una hoja de cálculo separada dentro de este nuevo archivo.
+                  <strong>Generación de PDF:</strong> Se crea un único documento PDF. El reporte está organizado por número de documento, y cada sección contiene la tabla de artículos de la orden de compra asociada.
                 </li>
                 <li>
-                  <strong>Descarga:</strong> Finalmente, se te proporciona un enlace para descargar el nuevo archivo de Excel con todos los datos organizados por hojas.
+                  <strong>Descarga:</strong> Finalmente, se te proporciona un enlace para descargar el PDF consolidado.
                 </li>
               </ol>
             </AccordionContent>
