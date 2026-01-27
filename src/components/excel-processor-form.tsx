@@ -268,7 +268,7 @@ export function ExcelProcessorForm() {
         const getWrappedLines = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
             if (!text || text.trim() === '') return [''];
             
-            const lines: string[][] = [];
+            const lines: string[] = [];
             const textBlocks = text.split('\n');
 
             for(const block of textBlocks) {
@@ -331,7 +331,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [65, 65, 225, 60, 80, 200, 30, 30, 50, 50, 50, 50, 65];
+        const columnWidths = [80, 75, 250, 40, 40, 200, 30, 30, 50, 50, 50, 65, 65];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -638,6 +638,62 @@ export function ExcelProcessorForm() {
                   <strong>Descarga:</strong> Finalmente, tu PDF consolidado se descarga automáticamente.
                 </li>
               </ol>
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="item-2">
+            <AccordionTrigger>
+              <div className="flex items-center gap-2 font-semibold">
+                <HelpCircle className="h-5 w-5" />
+                Instrucciones para obtener los archivos de SAP
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-4 text-sm text-muted-foreground">
+                <div>
+                  <h4 className="font-semibold text-foreground mb-2">Paso Previo: Obtener Números de Documento (BELNR)</h4>
+                  <ol className="list-decimal space-y-2 pl-6">
+                    <li>
+                      <strong>Transacción <code>MIR5</code></strong>:
+                      <ul className="list-disc pl-5 mt-1 space-y-1">
+                        <li>Ingresa, filtra y descarga las facturas según el rango de fechas, usuario y sociedad.</li>
+                        <li>Copia o exporta los números de documento (<code>BELNR</code>), los necesitarás para los siguientes pasos.</li>
+                      </ul>
+                    </li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-foreground mb-2">Archivo 1: Reporte de Compras (desde ZREP PEDIDOS)</h4>
+                  <ol className="list-decimal space-y-2 pl-6">
+                    <li>
+                      <strong>Transacción <code>ZREP PEDIDOS</code></strong>:
+                      <ul className="list-disc pl-5 mt-1 space-y-1">
+                          <li>En el campo de selección de "Facturas", pega todos los números de documento que obtuviste.</li>
+                          <li>Ejecuta el reporte (<strong>F8</strong>).</li>
+                          <li>Exportar como "Hoja de cálculo" y luego guardar el archivo en formato Excel.</li>
+                      </ul>
+                    </li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-foreground mb-2">Archivo 2: Reporte de Documentos (desde EKBE)</h4>
+                   <ol className="list-decimal space-y-2 pl-6">
+                     <li>
+                       <strong>Transacción <code>SE16</code></strong>:
+                       <ul className="list-disc pl-5 mt-1 space-y-1">
+                         <li>Ingresa a la transacción, escribe la tabla <strong><code>EKBE</code></strong> y presiona <strong>Enter</strong>.</li>
+                         <li>Carga la variante: Menú <em>Pasar a &gt; Variantes &gt; Traer...</em> y selecciona <strong><code>REVOC</code></strong>.</li>
+                         <li>En el campo <code>BELNR</code>, usa la selección múltiple para pegar todos los números de documento de la <code>MIR5</code>.</li>
+                         <li>Ejecuta la selección (<strong>F8</strong>).</li>
+                         <li>Asegúrate de que las columnas <code>BELNR</code> y <code>EBELN</code> estén visibles.</li>
+                         <li>Ve a <em>Sistema &gt; Lista &gt; Grabar &gt; Fichero local</em>.</li>
+                         <li>Elige la opción "Hoja de cálculo" y guarda el archivo. Este será el archivo que subirás.</li>
+                       </ul>
+                     </li>
+                   </ol>
+                </div>
+              </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
