@@ -4,19 +4,19 @@
 # Script para subir tu proyecto a GitHub
 #
 # INSTRUCCIONES:
-# 1. Abre este archivo y reemplaza `<tu-usuario>` y `<tu-repositorio>`
-#    con tu nombre de usuario de GitHub y el nombre de tu repositorio.
-# 2. Guarda los cambios.
-# 3. Abre tu terminal en la raíz del proyecto.
-# 4. Da permisos de ejecución al script con el comando: chmod +x how-to-deploy.sh
-# 5. Ejecuta el script con: ./how-to-deploy.sh
+# Este script ya está configurado para subir tu código a:
+# https://github.com/vinochelo/reportesrespaldo.git
+#
+# 1. Abre tu terminal en la raíz del proyecto.
+# 2. Da permisos de ejecución al script con el comando: chmod +x how-to-deploy.sh
+# 3. Ejecuta el script con: ./how-to-deploy.sh
 #
 # NOTA: Este script asume que ya has creado un repositorio vacío en GitHub.
 # -----------------------------------------------------------------------------
 
-# Reemplaza con tus datos
-GITHUB_USER="<tu-usuario>"
-GITHUB_REPO="<tu-repositorio>"
+# Datos del repositorio
+GITHUB_USER="vinochelo"
+GITHUB_REPO="reportesrespaldo"
 
 # --- NO MODIFICAR DEBAJO DE ESTA LÍNEA ---
 

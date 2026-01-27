@@ -1,32 +1,26 @@
 # Cómo Subir tu Proyecto a GitHub
 
-Esta guía te muestra cómo subir tu código a un repositorio de GitHub.
+Esta guía te muestra cómo subir tu código al repositorio `vinochelo/reportesrespaldo`.
 
 ## Opción 1: Usando el Script (Recomendado)
 
-He preparado un script (`how-to-deploy.sh`) que automatiza todos los pasos.
+He preparado y configurado un script (`how-to-deploy.sh`) que automatiza todos los pasos.
 
-1.  **Configura el Script:**
-    *   Abre el archivo `how-to-deploy.sh`.
-    *   Reemplaza los valores de `<tu-usuario>` y `<tu-repositorio>` con tus propios datos de GitHub.
+**Ejecuta el Script desde tu terminal:**
 
-2.  **Ejecuta el Script desde tu terminal:**
+```bash
+# Primero, da permisos de ejecución al archivo
+chmod +x how-to-deploy.sh
 
-    ```bash
-    # Primero, da permisos de ejecución al archivo
-    chmod +x how-to-deploy.sh
-
-    # Luego, ejecútalo
-    ./how-to-deploy.sh
-    ```
+# Luego, ejecútalo
+./how-to-deploy.sh
+```
 
 ¡Y eso es todo! El script se encargará del resto.
 
 ## Opción 2: Comandos Manuales
 
 Si prefieres ejecutar los comandos uno por uno, aquí los tienes listos para copiar y pegar en tu consola.
-
-**Recuerda reemplazar `<tu-usuario>` y `<tu-repositorio>` en el comando `git remote add origin`.**
 
 ```bash
 # 1. Inicializa un repositorio de Git (si no lo has hecho)
@@ -42,7 +36,7 @@ git commit -m "Initial commit"
 git branch -M main
 
 # 5. Conecta tu repositorio local con el que creaste en GitHub
-git remote add origin https://github.com/<tu-usuario>/<tu-repositorio>.git
+git remote add origin https://github.com/vinochelo/reportesrespaldo.git
 
 # 6. Sube tu código a GitHub
 git push -u origin main
