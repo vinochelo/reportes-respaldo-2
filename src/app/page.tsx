@@ -16,7 +16,7 @@ export default function Home() {
       <div className="mx-auto w-full max-w-3xl space-y-8">
         <div className="text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl">
-            <span className="font-light">ETAFASHION</span> <span className="text-destructive">RM</span>
+            <span className="font-light">ROCKU</span>
           </h1>
           <p className="mt-4 text-xl text-muted-foreground">
             Generador de Reportes PDF
@@ -29,7 +29,7 @@ export default function Home() {
         </Card>
         {year && (
           <footer className="text-center text-sm text-muted-foreground">
-            © {year} Etafashion RM. Todos los derechos reservados.
+            © {year} Rocku. Todos los derechos reservados.
           </footer>
         )}
       </div>
