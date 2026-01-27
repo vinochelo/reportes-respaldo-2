@@ -190,21 +190,35 @@ export function ExcelProcessorForm() {
       const docWorksheet = docWorkbook.Sheets[docSheetName];
       const docData: any[][] = XLSX.utils.sheet_to_json(docWorksheet, { header: 1 });
 
+      const ebelnNames = ['EBELN', 'Doc.compr.'];
+      const belnrNames = ['BELNR', 'Doc.mat.'];
+
       const docHeaderRowIndex = docData.findIndex(row => {
         if (!Array.isArray(row)) return false;
         const upperCaseCells = row.map(cell => String(cell || '').trim().toUpperCase());
-        return upperCaseCells.includes('EBELN') && upperCaseCells.includes('BELNR');
+        const hasEbeln = ebelnNames.some(name => upperCaseCells.includes(name.toUpperCase()));
+        const hasBelnr = belnrNames.some(name => upperCaseCells.includes(name.toUpperCase()));
+        return hasEbeln && hasBelnr;
       });
 
       if (docHeaderRowIndex === -1) {
-          throw new Error("No se encontró la fila de encabezado con 'EBELN' y 'BELNR' en el archivo de documentos.");
+          throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.");
       }
       const docHeaders = docData[docHeaderRowIndex].map(h => String(h || '').trim().toUpperCase());
-      const ebelnColIndex = docHeaders.indexOf("EBELN");
-      const belnrColIndex = docHeaders.indexOf("BELNR");
+      
+      const findColumnIndex = (headers: string[], possibleNames: string[]): number => {
+        for (const name of possibleNames) {
+            const index = headers.indexOf(name.toUpperCase());
+            if (index !== -1) return index;
+        }
+        return -1;
+      };
+
+      const ebelnColIndex = findColumnIndex(docHeaders, ebelnNames);
+      const belnrColIndex = findColumnIndex(docHeaders, belnrNames);
 
       if (ebelnColIndex === -1 || belnrColIndex === -1) {
-          throw new Error("No se encontraron las columnas 'EBELN' o 'BELNR' en el archivo de documentos.");
+          throw new Error("No se encontraron las columnas ('EBELN' o 'Doc.compr.') o ('BELNR' o 'Doc.mat.') en el archivo de documentos.");
       }
 
       const belnrToEbelnMap = new Map<string, string>();
@@ -317,7 +331,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [55, 55, 170, 50, 75, 170, 40, 50, 45, 50, 50, 50, 45];
+        const columnWidths = [50, 60, 100, 150, 75, 55, 45, 45, 50, 50, 50, 50, 45];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -339,6 +353,9 @@ export function ExcelProcessorForm() {
           const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO'];
           if (smallHeaders.includes(normalizedHeaderText)) {
             currentHeaderSize = 6;
+          }
+          if(normalizedHeaderText === 'FECHA INGRESO') {
+            currentHeaderSize = 5.5;
           }
 
           const textY = currentY - (headerLineHeight / 2) - (currentHeaderSize / 2) + 2;
@@ -378,6 +395,9 @@ export function ExcelProcessorForm() {
                   const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO'];
                   if (smallHeaders.includes(normalizedHeaderText)) {
                     currentHeaderSize = 6;
+                  }
+                  if(normalizedHeaderText === 'FECHA INGRESO') {
+                    currentHeaderSize = 5.5;
                   }
                   const textY = currentY - (headerLineHeight / 2) - (currentHeaderSize / 2) + 2;
                   page.drawText(String(header || ''), { x: newX + 3, y: textY, font: helveticaBoldFont, size: currentHeaderSize, color: rgb(1,1,1) });
