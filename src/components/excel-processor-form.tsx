@@ -262,7 +262,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [65, 55, 210, 65, 70, 270, 45, 55, 55, 45, 50, 50, 40];
+        const columnWidths = [65, 55, 270, 55, 50, 210, 45, 55, 55, 45, 50, 50, 40];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -341,7 +341,6 @@ export function ExcelProcessorForm() {
             
             // Draw grid lines for the row
             const rowBottomY = currentY + 2;
-            page.drawLine({ start: { x: pageLayout.margin, y: rowBottomY }, end: { x: width - pageLayout.margin, y: rowBottomY }, thickness: 0.5, color: rgb(0, 0, 0) });
             let vLineX = pageLayout.margin;
             for(let i=0; i <= scaledWidths.length; i++) {
                 page.drawLine({ start: {x: vLineX, y: rowTopY}, end: {x: vLineX, y: rowBottomY}, color: rgb(0, 0, 0), thickness: 0.5});
