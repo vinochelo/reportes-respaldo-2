@@ -222,19 +222,19 @@ export function ExcelProcessorForm() {
       };
 
       const drawPageHeader = (page: any) => {
-        const y = page.getSize().height - pageLayout.margin + 10;
+        const y = page.getSize().height - pageLayout.margin;
         page.drawText("Reporte Utilidades de Pedidos de Compras", {
           x: pageLayout.margin,
           y,
-          font: helveticaBoldFont,
-          size: 10,
+          font: helveticaFont,
+          size: 9,
         });
       };
       
       let currentPage = pdfDoc.addPage(pageLayout.size);
       drawPageHeader(currentPage);
       const { width, height } = currentPage.getSize();
-      let y = height - pageLayout.margin - 40;
+      let y = height - pageLayout.margin - 15;
 
       const drawTable = (page: any, headers: string[], rows: any[][], startY: number, ebeln: string, belnr: string) => {
         let currentY = startY;
@@ -252,7 +252,7 @@ export function ExcelProcessorForm() {
             }
         });
 
-        const columnWidths = [75, 75, 140, 75, 85, 140, 50, 60, 60, 50, 70, 70, 75];
+        const columnWidths = [70, 70, 150, 70, 90, 160, 40, 50, 50, 40, 65, 65, 70];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -281,7 +281,7 @@ export function ExcelProcessorForm() {
             if (currentY < pageLayout.margin + rowHeight * 2) { // Need space for row and summary
                 page = pdfDoc.addPage(pageLayout.size);
                 drawPageHeader(page);
-                currentY = height - pageLayout.margin - 40;
+                currentY = height - pageLayout.margin - 15;
 
                 let newX = pageLayout.margin;
                 page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(0.22, 0.45, 0.70) });
@@ -365,7 +365,7 @@ export function ExcelProcessorForm() {
         if (index > 0) {
           currentPage = pdfDoc.addPage(pageLayout.size);
           drawPageHeader(currentPage);
-          y = height - pageLayout.margin - 40;
+          y = height - pageLayout.margin - 15;
         }
         
         const { finalPage } = drawTable(currentPage, comprasHeaders, poData, y, ebeln, belnr);
