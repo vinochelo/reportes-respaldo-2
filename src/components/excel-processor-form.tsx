@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -148,8 +149,8 @@ export function ExcelProcessorForm() {
     setStatus("processing");
 
     try {
-      // 1. Process "Reporte de Compras"
-      setProgressMessage("Leyendo reporte de compras...");
+      // 1. Process "Reporte de Utilidad"
+      setProgressMessage("Leyendo reporte de utilidad...");
       const comprasBuffer = await comprasFile.arrayBuffer();
       const comprasWorkbook = XLSX.read(comprasBuffer, { type: "buffer", cellDates: true });
       const comprasSheetName = comprasWorkbook.SheetNames[0];
@@ -161,12 +162,12 @@ export function ExcelProcessorForm() {
         row.some(cell => typeof cell === 'string' && cell.trim().toUpperCase() === "ORD. DE COMPRA")
       );
       if (comprasHeaderRowIndex === -1) {
-        throw new Error("No se encontró la fila de encabezado con 'Ord. de Compra' en el reporte de compras.");
+        throw new Error("No se encontró la fila de encabezado con 'Ord. de Compra' en el reporte de utilidad.");
       }
       const comprasHeaders = comprasData[comprasHeaderRowIndex].map(h => String(h || '').trim());
       const purchaseOrderColIndex = comprasHeaders.findIndex(cell => cell.toUpperCase() === "ORD. DE COMPRA");
       if (purchaseOrderColIndex === -1) {
-        throw new Error("No se pudo encontrar la columna 'Ord. de Compra' en la fila de encabezado del reporte de compras.");
+        throw new Error("No se pudo encontrar la columna 'Ord. de Compra' en la fila de encabezado del reporte de utilidad.");
       }
       
       const comprasDataRows = comprasData.slice(comprasHeaderRowIndex + 1);
@@ -182,8 +183,8 @@ export function ExcelProcessorForm() {
         return acc;
       }, {} as Record<string, any[][]>);
 
-      // 2. Process "Reporte de Documentos" (EKBE)
-      setProgressMessage("Leyendo reporte de documentos...");
+      // 2. Process "Reporte Tabla EKBE"
+      setProgressMessage("Leyendo reporte tabla EKBE...");
       const docBuffer = await documentosFile.arrayBuffer();
       const docWorkbook = XLSX.read(docBuffer);
       const docSheetName = docWorkbook.SheetNames[0];
@@ -555,14 +556,14 @@ export function ExcelProcessorForm() {
         <FileInput
           file={comprasFile}
           onFileChange={setComprasFile}
-          placeholder="Subir Reporte de Compras"
+          placeholder="Subir Reporte de Utilidad"
           accept=".xlsx, .xls"
           icon={<FileSpreadsheet className="h-12 w-12" />}
         />
         <FileInput
           file={documentosFile}
           onFileChange={setDocumentosFile}
-          placeholder="Subir Reporte Documentos (EKBE)"
+          placeholder="Subir Reporte Tabla EKBE"
           accept=".xlsx, .xls"
           icon={<FileText className="h-12 w-12" />}
         />
@@ -623,10 +624,10 @@ export function ExcelProcessorForm() {
             <AccordionContent>
               <ol className="list-decimal space-y-2 pl-6 text-sm text-muted-foreground">
                 <li>
-                  <strong>Subir Reporte de Compras:</strong> Carga tu reporte principal de compras en formato Excel (.xlsx o .xls).
+                  <strong>Subir Reporte de Utilidad:</strong> Carga tu reporte principal de utilidad en formato Excel (.xlsx o .xls).
                 </li>
                  <li>
-                  <strong>Subir Reporte de Documentos:</strong> Carga tu reporte de documentos (EKBE), que puede ser un archivo HTML guardado como .xls.
+                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE, que puede ser un archivo HTML guardado como .xls.
                 </li>
                 <li>
                   <strong>Enlace de Datos:</strong> La aplicación asocia los números de documento (BELNR) del segundo archivo con sus órdenes de compra (EBELN / Ord. de Compra) correspondientes en el primer archivo.
@@ -663,7 +664,7 @@ export function ExcelProcessorForm() {
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-foreground mb-2">Archivo 1: Reporte de Compras (desde ZREP PEDIDOS)</h4>
+                  <h4 className="font-semibold text-foreground mb-2">Archivo 1: Reporte de Utilidad (desde ZREP PEDIDOS)</h4>
                   <ol className="list-decimal space-y-2 pl-6">
                     <li>
                       <strong>Transacción <code>ZREP PEDIDOS</code></strong>:
@@ -677,7 +678,7 @@ export function ExcelProcessorForm() {
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-foreground mb-2">Archivo 2: Reporte de Documentos (desde EKBE)</h4>
+                  <h4 className="font-semibold text-foreground mb-2">Archivo 2: Reporte Tabla EKBE (desde SE16)</h4>
                    <ol className="list-decimal space-y-2 pl-6">
                      <li>
                        <strong>Transacción <code>SE16</code></strong>:
