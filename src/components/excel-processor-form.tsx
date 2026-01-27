@@ -222,12 +222,12 @@ export function ExcelProcessorForm() {
       };
 
       const drawPageHeader = (page: any) => {
-        const y = page.getSize().height - pageLayout.margin;
+        const y = page.getSize().height - pageLayout.margin + 10;
         page.drawText("Reporte Utilidades de Pedidos de Compras", {
           x: pageLayout.margin,
           y,
           font: helveticaFont,
-          size: 9,
+          size: 8,
         });
       };
       
@@ -239,30 +239,30 @@ export function ExcelProcessorForm() {
       const drawTable = (page: any, headers: string[], rows: any[][], startY: number, ebeln: string, belnr: string) => {
         let currentY = startY;
         const rowHeight = 15;
-        const headerSize = 6;
-        const rowSize = 6;
+        const headerSize = 5;
+        const rowSize = 5;
         const availableWidth = width - 2 * pageLayout.margin;
         
-        const columnsToSum = ['Cant. In.', 'Costo Uni.', 'PVP S/IVA.', 'Costo total', 'PVP Total', 'Valor a Pagar'];
-        const columnToAverage = '% Utilidad';
-
+        const columnsToSum = ['Cant. In.', 'Costo Uni.', 'PVP S/IVA.', 'Utilidad', 'Costo total', 'PVP Total', 'Valor a Pagar'];
+        const columnsToAverage = ['% Utilidad'];
+        const valueColumns = ['Cant. In.','Costo Uni.','PVP S/IVA.','% Utilidad', 'Utilidad', 'Costo total', 'PVP Total', 'Valor a Pagar'];
+        
         const upperHeaders = headers.map(h => String(h || '').trim().toUpperCase());
         const sumIndices = columnsToSum.map(colName => upperHeaders.indexOf(colName.toUpperCase())).filter(i => i !== -1);
-        const avgIndex = upperHeaders.indexOf(columnToAverage.toUpperCase());
+        const avgIndices = columnsToAverage.map(colName => upperHeaders.indexOf(colName.toUpperCase())).filter(i => i !== -1);
 
         const totals = new Array(headers.length).fill(0);
-        let avgSum = 0;
-        let avgCount = 0;
-
-        const rightAlignedColumns = ['Cant. In.','Costo Uni.','PVP S/IVA.','% Utilidad','Costo total', 'PVP Total', 'Valor a Pagar'];
-        const rightAlignedIndices: number[] = [];
+        const avgTotals = new Array(headers.length).fill(0);
+        const avgCounts = new Array(headers.length).fill(0);
+        
+        const centerAlignedIndices: number[] = [];
         headers.forEach((h, i) => {
-            if (rightAlignedColumns.map(sc => sc.toUpperCase()).includes(String(h || '').toUpperCase())) {
-                rightAlignedIndices.push(i);
+            if (valueColumns.map(sc => sc.toUpperCase()).includes(String(h || '').toUpperCase())) {
+                centerAlignedIndices.push(i);
             }
         });
         
-        const columnWidths = [65, 65, 180, 65, 85, 150, 45, 55, 55, 45, 60, 60, 55];
+        const columnWidths = [65, 65, 200, 65, 85, 170, 45, 55, 55, 45, 50, 50, 50];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -315,12 +315,12 @@ export function ExcelProcessorForm() {
                     cellValue = String(cell === null || cell === undefined ? '' : cell);
                 }
                 
-                const isRightAligned = rightAlignedIndices.includes(i);
-                let xPos = cellX + 3;
+                const isCenterAligned = centerAlignedIndices.includes(i);
+                const textWidth = helveticaFont.widthOfTextAtSize(cellValue, rowSize);
+                let xPos = cellX + 3; // Default left alignment
 
-                if (isRightAligned) {
-                    const textWidth = helveticaFont.widthOfTextAtSize(cellValue, rowSize);
-                    xPos = cellX + scaledWidths[i] - textWidth - 3;
+                if (isCenterAligned) {
+                    xPos = cellX + (scaledWidths[i] - textWidth) / 2;
                 }
 
                 page.drawText(cellValue, { x: xPos, y: currentY - 9, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
@@ -330,9 +330,9 @@ export function ExcelProcessorForm() {
                     if (sumIndices.includes(i)) {
                         totals[i] += numValue;
                     }
-                    if (i === avgIndex) {
-                        avgSum += numValue;
-                        avgCount++;
+                    if (avgIndices.includes(i)) {
+                        avgTotals[i] += numValue;
+                        avgCounts[i]++;
                     }
                 }
                 cellX += scaledWidths[i];
@@ -360,17 +360,17 @@ export function ExcelProcessorForm() {
             
             if (sumIndices.includes(i)) {
                  textToDraw = totals[i].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            } else if (i === avgIndex && avgCount > 0) {
-                 const average = avgSum / avgCount;
+            } else if (avgIndices.includes(i) && avgCounts[i] > 0) {
+                 const average = avgTotals[i] / avgCounts[i];
                  textToDraw = average.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             }
 
             if (textToDraw) {
-                const isRightAligned = rightAlignedIndices.includes(i);
+                const isCenterAligned = centerAlignedIndices.includes(i);
+                const textWidth = helveticaBoldFont.widthOfTextAtSize(textToDraw, rowSize);
                 let xPos = summaryX + 3;
-                if (isRightAligned) {
-                    const textWidth = helveticaBoldFont.widthOfTextAtSize(textToDraw, rowSize);
-                    xPos = summaryX + scaledWidths[i] - textWidth - 3;
+                if (isCenterAligned) {
+                    xPos = summaryX + (scaledWidths[i] - textWidth) / 2;
                 }
                 page.drawText(textToDraw, { x: xPos, y: currentY - 9, font: helveticaBoldFont, size: rowSize });
             }
@@ -398,9 +398,9 @@ export function ExcelProcessorForm() {
 
         if (index > 0) {
           currentPage = pdfDoc.addPage(pageLayout.size);
-          drawPageHeader(currentPage);
           y = height - pageLayout.margin - 15;
         }
+        drawPageHeader(currentPage);
         
         const { finalPage } = drawTable(currentPage, comprasHeaders, poData, y, ebeln, belnr);
         currentPage = finalPage;
