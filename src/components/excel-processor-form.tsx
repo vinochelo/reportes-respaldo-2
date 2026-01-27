@@ -138,7 +138,7 @@ export function ExcelProcessorForm() {
       // 1. Process "Reporte de Compras"
       setProgressMessage("Leyendo reporte de compras...");
       const comprasBuffer = await comprasFile.arrayBuffer();
-      const comprasWorkbook = XLSX.read(comprasBuffer, { type: "buffer" });
+      const comprasWorkbook = XLSX.read(comprasBuffer, { type: "buffer", cellDates: true });
       const comprasSheetName = comprasWorkbook.SheetNames[0];
       const comprasWorksheet = comprasWorkbook.Sheets[comprasSheetName];
       const comprasData: any[][] = XLSX.utils.sheet_to_json(comprasWorksheet, { header: 1 });
@@ -225,7 +225,7 @@ export function ExcelProcessorForm() {
           x: pageLayout.margin,
           y,
           font: helveticaBoldFont,
-          size: 14,
+          size: 12,
         });
       };
       
@@ -256,7 +256,7 @@ export function ExcelProcessorForm() {
         const scaledWidths = columnWidths.map(w => w * scale);
 
         // Draw Header
-        let currentX = pageLayout.margin;
+        const headerTopY = currentY + 2;
         page.drawRectangle({
           x: pageLayout.margin,
           y: currentY - rowHeight + 2,
@@ -264,14 +264,18 @@ export function ExcelProcessorForm() {
           height: rowHeight,
           color: rgb(0.22, 0.45, 0.70), // Blue background
         })
+        let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
           page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 9, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
           currentX += scaledWidths[i];
         });
         currentY -= rowHeight;
+        page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0.8,0.8,0.8) });
+
         
         // Draw Rows
         for (const row of rows) {
+            const rowTopY = currentY + 2;
             if (currentY < pageLayout.margin + rowHeight * 2) { // Need space for row and summary
                 page = pdfDoc.addPage(pageLayout.size);
                 drawPageHeader(page);
@@ -284,11 +288,21 @@ export function ExcelProcessorForm() {
                   newX += scaledWidths[i];
                 });
                 currentY -= rowHeight;
+                page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0.8,0.8,0.8) });
             }
             
             let cellX = pageLayout.margin;
             row.forEach((cell, i) => {
-                const cellValue = String(cell === null || cell === undefined ? '' : cell);
+                let cellValue;
+                if (cell instanceof Date) {
+                    const day = String(cell.getDate()).padStart(2, '0');
+                    const month = String(cell.getMonth() + 1).padStart(2, '0');
+                    const year = cell.getFullYear();
+                    cellValue = `${day}/${month}/${year}`;
+                } else {
+                    cellValue = String(cell === null || cell === undefined ? '' : cell);
+                }
+
                 page.drawText(cellValue, { x: cellX + 3, y: currentY - 9, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
                 if (sumColumnIndices.includes(i)) {
                     const numValue = parseFloat(cellValue.toString().replace(/,/g, ''));
@@ -299,12 +313,21 @@ export function ExcelProcessorForm() {
                 cellX += scaledWidths[i];
             });
             currentY -= rowHeight;
-            page.drawLine({ start: { x: pageLayout.margin, y: currentY + 3 }, end: { x: width - pageLayout.margin, y: currentY + 3 }, thickness: 0.5, color: rgb(0.8,0.8,0.8) });
+            
+            // Draw grid lines for the row
+            const rowBottomY = currentY + 2;
+            page.drawLine({ start: { x: pageLayout.margin, y: rowBottomY }, end: { x: width - pageLayout.margin, y: rowBottomY }, thickness: 0.5, color: rgb(0.8,0.8,0.8) });
+            let vLineX = pageLayout.margin;
+            for(let i=0; i <= scaledWidths.length; i++) {
+                page.drawLine({ start: {x: vLineX, y: rowTopY}, end: {x: vLineX, y: rowBottomY}, color: rgb(0.8,0.8,0.8), thickness: 0.5});
+                if (i < scaledWidths.length) vLineX += scaledWidths[i];
+            }
         }
 
         // Draw summary row
+        const summaryTopY = currentY + 2;
+        page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(1, 1, 0.8) }); // Yellow background
         let summaryX = pageLayout.margin;
-        page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 3, width: availableWidth, height: rowHeight, color: rgb(1, 1, 0.8) }); // Yellow background
         page.drawText('*', { x: summaryX + 3, y: currentY - 9, font: helveticaBoldFont, size: rowSize });
         
         headers.forEach((h, i) => {
@@ -318,6 +341,15 @@ export function ExcelProcessorForm() {
             summaryX += scaledWidths[i];
         });
         currentY -= rowHeight;
+        
+        const summaryBottomY = currentY + 2;
+        page.drawLine({ start: { x: pageLayout.margin, y: summaryBottomY }, end: { x: width - pageLayout.margin, y: summaryBottomY }, thickness: 0.5, color: rgb(0.6,0.6,0.6) });
+        let vLineX = pageLayout.margin;
+        for(let i=0; i <= scaledWidths.length; i++) {
+            page.drawLine({ start: {x: vLineX, y: summaryTopY}, end: {x: vLineX, y: summaryBottomY}, color: rgb(0.6,0.6,0.6), thickness: 0.5});
+            if (i < scaledWidths.length) vLineX += scaledWidths[i];
+        }
+
 
         return { finalY: currentY, finalPage: page };
       };
@@ -331,10 +363,9 @@ export function ExcelProcessorForm() {
         if (index > 0) {
           currentPage = pdfDoc.addPage(pageLayout.size);
           drawPageHeader(currentPage);
+          y = height - pageLayout.margin - 40;
         }
         
-        y = height - pageLayout.margin - 40;
-
         const { finalPage } = drawTable(currentPage, comprasHeaders, poData, y, ebeln, belnr);
         currentPage = finalPage;
       }
