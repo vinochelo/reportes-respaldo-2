@@ -238,7 +238,7 @@ export function ExcelProcessorForm() {
 
       const drawTable = (page: any, headers: string[], rows: any[][], startY: number, ebeln: string, belnr: string) => {
         let currentY = startY;
-        const rowHeight = 12;
+        const rowHeight = 11;
         const headerSize = 5;
         const rowSize = 5;
         const availableWidth = width - 2 * pageLayout.margin;
@@ -262,7 +262,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [65, 65, 170, 65, 200, 170, 45, 55, 55, 45, 50, 50, 40];
+        const columnWidths = [65, 65, 170, 65, 150, 220, 45, 55, 55, 45, 50, 50, 40];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -351,6 +351,7 @@ export function ExcelProcessorForm() {
 
         // Draw summary row
         const summaryTopY = currentY + 2;
+        page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 0.5, color: rgb(0.6,0.6,0.6) });
         page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(1, 1, 0.8) }); // Yellow background
         let summaryX = pageLayout.margin;
         page.drawText('*', { x: summaryX + 3, y: currentY - 8, font: helveticaBoldFont, size: rowSize });
