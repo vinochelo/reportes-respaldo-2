@@ -114,6 +114,17 @@ export function ExcelProcessorForm() {
   const [downloadUrl, setDownloadUrl] = React.useState<string | null>(null);
   const { toast } = useToast();
 
+  React.useEffect(() => {
+    if (status === 'success' && downloadUrl) {
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', 'Reporte_Consolidado.pdf');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }, [status, downloadUrl]);
+
   const resetState = () => {
     setComprasFile(null);
     setDocumentosFile(null);
@@ -243,9 +254,9 @@ export function ExcelProcessorForm() {
         const rowSize = 5;
         const availableWidth = width - 2 * pageLayout.margin;
         
-        const columnsToSum = ['Cant. In', 'Costo Uni', 'PVP S/IVA', 'Costo total', 'PVP Total', 'Valor a Pagar'];
+        const columnsToSum = ['Cant. In', 'Costo Uni', 'PVP S/IVA', 'Costo total', 'PVP Total', 'Valor a Pagar', 'Utilidad'];
         const columnsToAverage = ['% Utilidad'];
-        const valueColumns = ['Cant. In','Costo Uni','PVP S/IVA','% Utilidad', 'Costo total', 'PVP Total', 'Valor a Pagar'];
+        const valueColumns = ['Cant. In','Costo Uni','PVP S/IVA','% Utilidad', 'Costo total', 'PVP Total', 'Valor a Pagar', 'Utilidad'];
         
         const upperHeaders = headers.map(h => String(h || '').trim().replace(/\.?$/, '').toUpperCase());
         const sumIndices = columnsToSum.map(colName => upperHeaders.indexOf(colName.toUpperCase().replace(/\.?$/, ''))).filter(i => i !== -1);
@@ -262,7 +273,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [80, 55, 170, 55, 80, 255, 45, 55, 55, 45, 50, 50, 40];
+        const columnWidths = [80, 55, 150, 65, 80, 260, 45, 55, 55, 45, 50, 50, 40];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -337,6 +348,14 @@ export function ExcelProcessorForm() {
                 cellX += scaledWidths[i];
             });
             currentY -= rowHeight;
+
+            // Draw horizontal line for the row
+            page.drawLine({
+              start: { x: pageLayout.margin, y: currentY + 2 },
+              end: { x: width - pageLayout.margin, y: currentY + 2 },
+              color: rgb(0.85, 0.85, 0.85), // Light Gray
+              thickness: 0.5
+            });
             
             // Draw vertical grid lines for the row
             const rowBottomY = currentY + 2;
