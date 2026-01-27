@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { PdfReorderForm } from '@/components/pdf-reorder-form';
+import { ExcelProcessorForm } from '@/components/excel-processor-form';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function Home() {
@@ -19,12 +19,12 @@ export default function Home() {
             <span className="font-light">ETAFASHION</span> <span className="text-destructive">RM</span>
           </h1>
           <p className="mt-4 text-xl text-muted-foreground">
-            Reordenador de Reportes
+            Procesador de Reportes de Compras
           </p>
         </div>
         <Card className="shadow-lg">
           <CardContent className="p-8">
-            <PdfReorderForm />
+            <ExcelProcessorForm />
           </CardContent>
         </Card>
         {year && (
