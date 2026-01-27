@@ -262,7 +262,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [65, 65, 170, 65, 150, 220, 45, 55, 55, 45, 50, 50, 40];
+        const columnWidths = [65, 55, 210, 65, 70, 270, 45, 55, 55, 45, 50, 50, 40];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -278,11 +278,11 @@ export function ExcelProcessorForm() {
         })
         let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
-          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 5, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+          page.drawText(String(header || ''), { x: currentX + 3, y: currentY - 4, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
           currentX += scaledWidths[i];
         });
         currentY -= rowHeight;
-        page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0.8,0.8,0.8) });
+        page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
 
         
         // Draw Rows
@@ -296,11 +296,11 @@ export function ExcelProcessorForm() {
                 let newX = pageLayout.margin;
                 page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(0.22, 0.45, 0.70) });
                 headers.forEach((header, i) => {
-                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 5, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
+                  page.drawText(String(header || ''), { x: newX + 3, y: currentY - 4, font: helveticaBoldFont, size: headerSize, color: rgb(1,1,1) });
                   newX += scaledWidths[i];
                 });
                 currentY -= rowHeight;
-                page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0.8,0.8,0.8) });
+                page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
             }
             
             let cellX = pageLayout.margin;
@@ -323,7 +323,7 @@ export function ExcelProcessorForm() {
                     xPos = cellX + (scaledWidths[i] - textWidth) / 2;
                 }
 
-                page.drawText(cellValue, { x: xPos, y: currentY - 5, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
+                page.drawText(cellValue, { x: xPos, y: currentY - 4, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
 
                 const numValue = parseFloat(cellValue.replace(/,/g, ''));
                 if (!isNaN(numValue)) {
@@ -341,20 +341,20 @@ export function ExcelProcessorForm() {
             
             // Draw grid lines for the row
             const rowBottomY = currentY + 2;
-            page.drawLine({ start: { x: pageLayout.margin, y: rowBottomY }, end: { x: width - pageLayout.margin, y: rowBottomY }, thickness: 0.5, color: rgb(0.8,0.8,0.8) });
+            page.drawLine({ start: { x: pageLayout.margin, y: rowBottomY }, end: { x: width - pageLayout.margin, y: rowBottomY }, thickness: 0.5, color: rgb(0, 0, 0) });
             let vLineX = pageLayout.margin;
             for(let i=0; i <= scaledWidths.length; i++) {
-                page.drawLine({ start: {x: vLineX, y: rowTopY}, end: {x: vLineX, y: rowBottomY}, color: rgb(0.8,0.8,0.8), thickness: 0.5});
+                page.drawLine({ start: {x: vLineX, y: rowTopY}, end: {x: vLineX, y: rowBottomY}, color: rgb(0, 0, 0), thickness: 0.5});
                 if (i < scaledWidths.length) vLineX += scaledWidths[i];
             }
         }
 
         // Draw summary row
         const summaryTopY = currentY + 2;
-        page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 1, color: rgb(0.4, 0.4, 0.4) });
+        page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 0.5, color: rgb(0, 0, 0) });
         page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(1, 1, 0.8) }); // Yellow background
         let summaryX = pageLayout.margin;
-        page.drawText('*', { x: summaryX + 3, y: currentY - 5, font: helveticaBoldFont, size: rowSize });
+        page.drawText('*', { x: summaryX + 3, y: currentY - 4, font: helveticaBoldFont, size: rowSize });
         
         headers.forEach((h, i) => {
             let textToDraw = '';
@@ -373,17 +373,17 @@ export function ExcelProcessorForm() {
                 if (isCenterAligned) {
                     xPos = summaryX + (scaledWidths[i] - textWidth) / 2;
                 }
-                page.drawText(textToDraw, { x: xPos, y: currentY - 5, font: helveticaBoldFont, size: rowSize });
+                page.drawText(textToDraw, { x: xPos, y: currentY - 4, font: helveticaBoldFont, size: rowSize });
             }
             summaryX += scaledWidths[i];
         });
         currentY -= rowHeight;
         
         const summaryBottomY = currentY + 2;
-        page.drawLine({ start: { x: pageLayout.margin, y: summaryBottomY }, end: { x: width - pageLayout.margin, y: summaryBottomY }, thickness: 0.5, color: rgb(0.6,0.6,0.6) });
+        page.drawLine({ start: { x: pageLayout.margin, y: summaryBottomY }, end: { x: width - pageLayout.margin, y: summaryBottomY }, thickness: 0.5, color: rgb(0, 0, 0) });
         let vLineX = pageLayout.margin;
         for(let i=0; i <= scaledWidths.length; i++) {
-            page.drawLine({ start: {x: vLineX, y: summaryTopY}, end: {x: vLineX, y: summaryBottomY}, color: rgb(0.6,0.6,0.6), thickness: 0.5});
+            page.drawLine({ start: {x: vLineX, y: summaryTopY}, end: {x: vLineX, y: summaryBottomY}, color: rgb(0, 0, 0), thickness: 0.5});
             if (i < scaledWidths.length) vLineX += scaledWidths[i];
         }
 
