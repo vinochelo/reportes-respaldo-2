@@ -262,13 +262,12 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [80, 55, 255, 55, 50, 200, 45, 55, 55, 45, 50, 50, 40];
+        const columnWidths = [80, 55, 170, 55, 80, 255, 45, 55, 55, 45, 50, 50, 40];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
 
         // Draw Header
-        const headerTopY = currentY + 2;
         page.drawRectangle({
           x: pageLayout.margin,
           y: currentY - rowHeight + 2,
@@ -287,7 +286,6 @@ export function ExcelProcessorForm() {
         
         // Draw Rows
         for (const row of rows) {
-            const rowTopY = currentY + 2;
             if (currentY < pageLayout.margin + rowHeight * 2) { // Need space for row and summary
                 page = pdfDoc.addPage(pageLayout.size);
                 drawPageHeader(page);
@@ -303,6 +301,7 @@ export function ExcelProcessorForm() {
                 page.drawLine({ start: { x: pageLayout.margin, y: currentY + 2 }, end: { x: width - pageLayout.margin, y: currentY + 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
             }
             
+            const rowTopY = currentY + 2;
             let cellX = pageLayout.margin;
             row.forEach((cell, i) => {
                 let cellValue;
@@ -350,7 +349,7 @@ export function ExcelProcessorForm() {
 
         // Draw summary row
         const summaryTopY = currentY + 2;
-        page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 0.5, color: rgb(0, 0, 0) });
+        page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 1, color: rgb(0, 0, 0) });
         page.drawRectangle({ x: pageLayout.margin, y: currentY - rowHeight + 2, width: availableWidth, height: rowHeight, color: rgb(1, 1, 0.8) }); // Yellow background
         let summaryX = pageLayout.margin;
         page.drawText('*', { x: summaryX + 3, y: currentY - 4, font: helveticaBoldFont, size: rowSize });
