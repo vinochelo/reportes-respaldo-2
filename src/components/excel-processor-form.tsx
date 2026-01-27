@@ -143,12 +143,18 @@ export function ExcelProcessorForm() {
       const comprasWorksheet = comprasWorkbook.Sheets[comprasSheetName];
       const comprasData: any[][] = XLSX.utils.sheet_to_json(comprasWorksheet, { header: 1 });
       
-      const comprasHeaderRowIndex = comprasData.findIndex(row => Array.isArray(row) && row.includes("Ord. de Compra"));
+      const comprasHeaderRowIndex = comprasData.findIndex(row => 
+        Array.isArray(row) && 
+        row.some(cell => typeof cell === 'string' && cell.trim() === "Ord. de Compra")
+      );
       if (comprasHeaderRowIndex === -1) {
         throw new Error("No se encontró la fila de encabezado con 'Ord. de Compra' en el reporte de compras.");
       }
       const comprasHeaders = comprasData[comprasHeaderRowIndex];
-      const purchaseOrderColIndex = comprasHeaders.indexOf("Ord. de Compra");
+      const purchaseOrderColIndex = comprasHeaders.findIndex(cell => typeof cell === 'string' && cell.trim() === "Ord. de Compra");
+      if (purchaseOrderColIndex === -1) {
+        throw new Error("No se pudo encontrar la columna 'Ord. de Compra' en la fila de encabezado del reporte de compras.");
+      }
       
       const comprasDataRows = comprasData.slice(comprasHeaderRowIndex + 1);
       const groupedByPurchaseOrder = comprasDataRows.reduce((acc, row) => {
@@ -171,11 +177,14 @@ export function ExcelProcessorForm() {
       const docWorksheet = docWorkbook.Sheets[docSheetName];
       const docData: any[][] = XLSX.utils.sheet_to_json(docWorksheet, { header: 1 });
 
-      const docHeaderRowIndex = docData.findIndex(row => Array.isArray(row) && row.includes("EBELN"));
+      const docHeaderRowIndex = docData.findIndex(row => 
+        Array.isArray(row) && 
+        row.some(cell => typeof cell === 'string' && cell.trim().toUpperCase() === 'EBELN')
+      );
       if (docHeaderRowIndex === -1) {
           throw new Error("No se encontró la fila de encabezado con 'EBELN' en el archivo de documentos.");
       }
-      const docHeaders = docData[docHeaderRowIndex];
+      const docHeaders = docData[docHeaderRowIndex].map(h => String(h || '').trim().toUpperCase());
       const ebelnColIndex = docHeaders.indexOf("EBELN");
       const belnrColIndex = docHeaders.indexOf("BELNR");
 
