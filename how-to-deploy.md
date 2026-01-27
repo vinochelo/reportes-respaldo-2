@@ -1,69 +1,59 @@
 # Cómo Subir tu Proyecto a GitHub
 
-Esta guía te mostrará los pasos y comandos básicos para inicializar un repositorio de Git en tu proyecto, conectarlo a un repositorio remoto en GitHub y subir tus archivos.
+Esta guía te muestra cómo subir tu código a un repositorio de GitHub.
 
-## Pasos
+## Opción 1: Usando el Script (Recomendado)
 
-### 1. Inicializar un Repositorio de Git
+He preparado un script (`how-to-deploy.sh`) que automatiza todos los pasos.
 
-Si aún no lo has hecho, el primer paso es inicializar un repositorio de Git en la carpeta de tu proyecto. Abre tu terminal en la raíz del proyecto y ejecuta:
+1.  **Configura el Script:**
+    *   Abre el archivo `how-to-deploy.sh`.
+    *   Reemplaza los valores de `<tu-usuario>` y `<tu-repositorio>` con tus propios datos de GitHub.
+
+2.  **Ejecuta el Script desde tu terminal:**
+
+    ```bash
+    # Primero, da permisos de ejecución al archivo
+    chmod +x how-to-deploy.sh
+
+    # Luego, ejecútalo
+    ./how-to-deploy.sh
+    ```
+
+¡Y eso es todo! El script se encargará del resto.
+
+## Opción 2: Comandos Manuales
+
+Si prefieres ejecutar los comandos uno por uno, aquí los tienes listos para copiar y pegar en tu consola.
+
+**Recuerda reemplazar `<tu-usuario>` y `<tu-repositorio>` en el comando `git remote add origin`.**
 
 ```bash
+# 1. Inicializa un repositorio de Git (si no lo has hecho)
 git init
-```
 
-Este comando crea un subdirectorio oculto `.git` que contiene todos los archivos necesarios para el repositorio.
-
-### 2. Añadir los Archivos al Área de Preparación (Staging)
-
-A continuación, añade todos los archivos de tu proyecto al área de preparación para que Git pueda empezar a rastrearlos.
-
-```bash
+# 2. Añade todos los archivos para ser rastreados
 git add .
-```
 
-El `.` le indica a Git que quieres añadir todos los archivos y directorios del proyecto.
-
-### 3. Realizar tu Primer Commit
-
-Un "commit" es como una instantánea de tus archivos en un momento dado. Guarda los cambios que has preparado en el historial del repositorio.
-
-```bash
+# 3. Guarda una "instantánea" de tus cambios
 git commit -m "Initial commit"
-```
 
-El mensaje (`-m`) es una breve descripción de los cambios que estás guardando. "Initial commit" (o "Commit inicial") es un mensaje estándar para el primer commit.
-
-### 4. Crear y Conectar tu Repositorio en GitHub
-
-Ahora, ve a [GitHub](https://github.com) y crea un nuevo repositorio. No lo inicialices con un `README`, `.gitignore` o `licencia`, ya que tu proyecto ya los tiene.
-
-Una vez creado, GitHub te proporcionará una URL para tu repositorio. Cópiala y úsala en el siguiente comando para conectar tu repositorio local con el remoto:
-
-```bash
-git remote add origin https://github.com/<tu-usuario>/<tu-repositorio>.git
-```
-
-**Importante:** Reemplaza `<tu-usuario>` y `<tu-repositorio>` con tu nombre de usuario de GitHub y el nombre de tu repositorio, respectivamente.
-
-### 5. (Opcional) Renombrar la Rama Principal
-
-Por convención, la rama principal de muchos proyectos se llama `main`. Si tu rama principal se llama `master`, puedes renombrarla con el siguiente comando:
-
-```bash
+# 4. (Opcional) Renombra la rama a 'main', que es la convención actual
 git branch -M main
-```
 
-### 6. Subir tus Cambios a GitHub
+# 5. Conecta tu repositorio local con el que creaste en GitHub
+git remote add origin https://github.com/<tu-usuario>/<tu-repositorio>.git
 
-Finalmente, sube tu código al repositorio remoto en GitHub. El comando `push` envía tus commits al servidor.
-
-```bash
+# 6. Sube tu código a GitHub
 git push -u origin main
 ```
 
-*   `-u`: Esta opción establece una relación de seguimiento entre tu rama local `main` y la rama `main` en el repositorio remoto (`origin`). Esto te permitirá usar `git pull` y `git push` en el futuro sin tener que especificar la rama cada vez.
-*   `origin`: Es el nombre predeterminado para tu repositorio remoto.
-*   `main`: Es el nombre de la rama que estás subiendo.
+### Para futuras actualizaciones
 
-¡Y eso es todo! Tu código ahora está en GitHub. Para futuras actualizaciones, solo necesitarás usar `git add .`, `git commit -m "Tu mensaje"` y `git push`.
+Una vez que el proyecto está en GitHub, solo necesitarás estos tres comandos para subir nuevos cambios:
+
+```bash
+git add .
+git commit -m "Describe tus nuevos cambios aquí"
+git push
+```
