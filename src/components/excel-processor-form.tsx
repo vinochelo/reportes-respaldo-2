@@ -121,6 +121,9 @@ export function ExcelProcessorForm() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      // Clean up the object URL after download
+      URL.revokeObjectURL(downloadUrl);
+      setDownloadUrl(null);
     }
   }, [status, downloadUrl]);
 
@@ -253,7 +256,6 @@ export function ExcelProcessorForm() {
             
             const lines: string[] = [];
             let currentLine = '';
-            // First split by explicit newlines
             const textBlocks = text.split('\n');
 
             for(const block of textBlocks) {
@@ -266,7 +268,6 @@ export function ExcelProcessorForm() {
                     } else {
                         if (currentLine !== '') lines.push(currentLine);
                         
-                        // Word itself is too long, must break it
                         let tempWord = word;
                         while (font.widthOfTextAtSize(tempWord, size) > maxWidth) {
                             let i = tempWord.length - 1;
@@ -277,7 +278,6 @@ export function ExcelProcessorForm() {
                                 lines.push(tempWord.substring(0, i));
                                 tempWord = tempWord.substring(i);
                             } else {
-                                // Failsafe if a single character is too wide (very unlikely)
                                 lines.push(tempWord); 
                                 tempWord = '';
                                 break;
@@ -318,7 +318,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [150, 60, 200, 60, 75, 110, 45, 55, 55, 45, 50, 50, 60];
+        const columnWidths = [70, 80, 150, 60, 150, 120, 45, 55, 55, 45, 50, 50, 75];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -329,7 +329,7 @@ export function ExcelProcessorForm() {
           y: currentY - headerLineHeight,
           width: availableWidth,
           height: headerLineHeight,
-          color: rgb(0.22, 0.45, 0.70), // Blue background
+          color: rgb(0.22, 0.45, 0.70),
         })
         let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
@@ -357,13 +357,7 @@ export function ExcelProcessorForm() {
             const dynamicRowHeight = maxLines * rowLineHeight;
             const rowTopY = currentY;
             
-            if (currentY < pageLayout.margin + dynamicRowHeight) { 
-                let vLineX = pageLayout.margin;
-                for(let i=0; i <= scaledWidths.length; i++) {
-                    page.drawLine({ start: {x: vLineX, y: rowTopY}, end: {x: vLineX, y: pageLayout.margin}, color: rgb(0, 0, 0), thickness: 0.5});
-                    if (i < scaledWidths.length) vLineX += scaledWidths[i];
-                }
-
+            if (currentY < pageLayout.margin + dynamicRowHeight) {
                 page = pdfDoc.addPage(pageLayout.size);
                 drawPageHeader(page);
                 currentY = height - pageLayout.margin - 15;
@@ -381,13 +375,15 @@ export function ExcelProcessorForm() {
             let cellX = pageLayout.margin;
             rowCellLines.forEach((lines, i) => {
                 const isCenterAligned = centerAlignedIndices.includes(i);
+                const yOffset = (dynamicRowHeight - (lines.length * (rowSize + 1)) + rowLineHeight) / 2;
+
                 lines.forEach((line, lineIndex) => {
                     const textWidth = helveticaFont.widthOfTextAtSize(line, rowSize);
                     let xPos = cellX + 3;
                     if (isCenterAligned) {
                         xPos = cellX + (scaledWidths[i] - textWidth) / 2;
                     }
-                    const yPos = currentY - (rowLineHeight / 2) - (rowSize / 2) + 2 - (lineIndex * (rowSize + 1));
+                    const yPos = currentY - yOffset - (lineIndex * (rowSize + 1));
                     page.drawText(line, { x: xPos, y: yPos, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
                 });
                 cellX += scaledWidths[i];
@@ -426,8 +422,8 @@ export function ExcelProcessorForm() {
 
         // Draw summary row
         const summaryTopY = currentY;
-        page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 1, color: rgb(0, 0, 0) });
-        page.drawRectangle({ x: pageLayout.margin, y: currentY - headerLineHeight, width: availableWidth, height: headerLineHeight, color: rgb(1, 1, 0.8) }); // Yellow background
+        page.drawLine({ start: { x: pageLayout.margin, y: summaryTopY }, end: { x: width - pageLayout.margin, y: summaryTopY }, thickness: 1.5, color: rgb(0, 0, 0) });
+        page.drawRectangle({ x: pageLayout.margin, y: currentY - headerLineHeight, width: availableWidth, height: headerLineHeight, color: rgb(1, 1, 0.8) });
         let summaryX = pageLayout.margin;
         page.drawText('*', { x: summaryX + 3, y: currentY - (headerLineHeight/2) - (rowSize/2) + 2, font: helveticaBoldFont, size: rowSize });
         
@@ -438,7 +434,7 @@ export function ExcelProcessorForm() {
             if (sumIndices.includes(i)) {
                  textToDraw = totals[i].toFixed(2);
                  if (String(h || '').trim().replace(/\.?$/, '').toUpperCase() === 'COSTO TOTAL') {
-                    specialSize = rowSize + 1; // Make it bigger
+                    specialSize = rowSize + 1;
                  }
             } else if (avgIndices.includes(i) && avgCounts[i] > 0) {
                  const average = avgTotals[i] / avgCounts[i];
