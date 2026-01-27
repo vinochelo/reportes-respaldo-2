@@ -318,7 +318,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [70, 80, 150, 60, 150, 120, 45, 55, 55, 45, 50, 50, 75];
+        const columnWidths = [60, 65, 120, 60, 85, 180, 45, 55, 55, 45, 50, 50, 75];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
@@ -355,7 +355,6 @@ export function ExcelProcessorForm() {
             });
             const maxLines = Math.max(1, ...rowCellLines.map(lines => lines.length));
             const dynamicRowHeight = maxLines * rowLineHeight;
-            const rowTopY = currentY;
             
             if (currentY < pageLayout.margin + dynamicRowHeight) {
                 page = pdfDoc.addPage(pageLayout.size);
@@ -371,19 +370,20 @@ export function ExcelProcessorForm() {
                 });
                 currentY -= headerLineHeight;
             }
+            const rowTopY = currentY;
             
             let cellX = pageLayout.margin;
             rowCellLines.forEach((lines, i) => {
                 const isCenterAligned = centerAlignedIndices.includes(i);
-                const yOffset = (dynamicRowHeight - (lines.length * (rowSize + 1)) + rowLineHeight) / 2;
-
+                
                 lines.forEach((line, lineIndex) => {
                     const textWidth = helveticaFont.widthOfTextAtSize(line, rowSize);
                     let xPos = cellX + 3;
                     if (isCenterAligned) {
                         xPos = cellX + (scaledWidths[i] - textWidth) / 2;
                     }
-                    const yPos = currentY - yOffset - (lineIndex * (rowSize + 1));
+                    const yPos = rowTopY - (dynamicRowHeight / 2) - ((lines.length-1) * (rowSize+1)/2) + ((lines.length-1 - lineIndex) * (rowSize+1)) - 1;
+
                     page.drawText(line, { x: xPos, y: yPos, font: helveticaFont, size: rowSize, color: rgb(0.2, 0.2, 0.2) });
                 });
                 cellX += scaledWidths[i];
@@ -408,7 +408,7 @@ export function ExcelProcessorForm() {
             page.drawLine({
               start: { x: pageLayout.margin, y: currentY },
               end: { x: width - pageLayout.margin, y: currentY },
-              color: rgb(0.85, 0.85, 0.85),
+              color: rgb(0.8, 0.8, 0.8),
               thickness: 0.5
             });
             
