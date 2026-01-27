@@ -331,7 +331,7 @@ export function ExcelProcessorForm() {
             }
         });
         
-        const columnWidths = [55, 60, 155, 50, 90, 150, 45, 45, 50, 50, 50, 50, 45];
+        const columnWidths = [55, 50, 180, 50, 75, 150, 45, 45, 50, 50, 50, 50, 45];
         const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
         const scale = availableWidth / tableWidth;
         const scaledWidths = columnWidths.map(w => w * scale);
