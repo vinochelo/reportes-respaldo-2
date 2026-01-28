@@ -370,7 +370,7 @@ export function ExcelProcessorForm() {
           const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
           let currentHeaderSize = headerSize;
           
-          const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO'];
+          const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO', 'PVP S/IVA', '% UTILIDAD', 'COSTO TOTAL', 'PVP TOTAL', 'PROVEEDOR'];
           if (smallHeaders.includes(normalizedHeaderText)) {
             currentHeaderSize = 6;
           }
@@ -412,7 +412,7 @@ export function ExcelProcessorForm() {
                   const headerText = String(header || '');
                   const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
                   let currentHeaderSize = headerSize;
-                  const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO'];
+                  const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO', 'PVP S/IVA', '% UTILIDAD', 'COSTO TOTAL', 'PVP TOTAL', 'PROVEEDOR'];
                   if (smallHeaders.includes(normalizedHeaderText)) {
                     currentHeaderSize = 6;
                   }
