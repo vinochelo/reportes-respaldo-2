@@ -246,6 +246,7 @@ export function ExcelProcessorForm() {
         'PROVEEDOR': 60,
         'NOMBRE PROVEEDOR': 200,
         'MATERIAL': 100,
+        'DESCRIPCIÓN MATERIAL': 300,
         'DESCRIPCION MATERIAL': 300,
         'FECHA INGRESO': 65,
         'CANT. IN': 30,
@@ -357,12 +358,14 @@ export function ExcelProcessorForm() {
         const scaledWidths = columnWidths.map(w => w * scale);
 
         // Draw Header
-        page.drawRectangle({
-          x: pageLayout.margin,
-          y: currentY - headerLineHeight,
-          width: availableWidth,
-          height: headerLineHeight,
-          color: rgb(0.22, 0.45, 0.70),
+        const headerTopY = currentY;
+        page.drawRectangle({ // Draw outer box
+            x: pageLayout.margin,
+            y: currentY - headerLineHeight,
+            width: availableWidth,
+            height: headerLineHeight,
+            borderColor: rgb(0,0,0),
+            borderWidth: 1.5
         })
         let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
@@ -379,8 +382,17 @@ export function ExcelProcessorForm() {
           }
 
           const textY = currentY - (headerLineHeight / 2) - (currentHeaderSize / 2) + 2;
-          page.drawText(headerText, { x: currentX + 3, y: textY , font: helveticaBoldFont, size: currentHeaderSize, color: rgb(1,1,1) });
+          page.drawText(headerText, { x: currentX + 3, y: textY , font: helveticaBoldFont, size: currentHeaderSize, color: rgb(0,0,0) });
           currentX += scaledWidths[i];
+
+          if (i < headers.length - 1) { // Draw vertical dividers
+            page.drawLine({
+                start: {x: currentX, y: headerTopY},
+                end: {x: currentX, y: headerTopY - headerLineHeight},
+                thickness: 0.5,
+                color: rgb(0,0,0)
+            })
+          }
         });
         currentY -= headerLineHeight;
         
@@ -406,8 +418,16 @@ export function ExcelProcessorForm() {
                 drawPageHeader(page);
                 currentY = height - pageLayout.margin - 15;
 
+                const newHeaderTopY = currentY;
+                page.drawRectangle({ // Draw outer box
+                    x: pageLayout.margin,
+                    y: currentY - headerLineHeight,
+                    width: availableWidth,
+                    height: headerLineHeight,
+                    borderColor: rgb(0,0,0),
+                    borderWidth: 1.5
+                });
                 let newX = pageLayout.margin;
-                page.drawRectangle({ x: pageLayout.margin, y: currentY - headerLineHeight, width: availableWidth, height: headerLineHeight, color: rgb(0.22, 0.45, 0.70) });
                 headers.forEach((header, i) => {
                   const headerText = String(header || '');
                   const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
@@ -420,8 +440,17 @@ export function ExcelProcessorForm() {
                     currentHeaderSize = 5.5;
                   }
                   const textY = currentY - (headerLineHeight / 2) - (currentHeaderSize / 2) + 2;
-                  page.drawText(String(header || ''), { x: newX + 3, y: textY, font: helveticaBoldFont, size: currentHeaderSize, color: rgb(1,1,1) });
+                  page.drawText(String(header || ''), { x: newX + 3, y: textY, font: helveticaBoldFont, size: currentHeaderSize, color: rgb(0,0,0) });
                   newX += scaledWidths[i];
+
+                  if (i < headers.length - 1) { // Draw vertical dividers
+                    page.drawLine({
+                        start: {x: newX, y: newHeaderTopY},
+                        end: {x: newX, y: newHeaderTopY - headerLineHeight},
+                        thickness: 0.5,
+                        color: rgb(0,0,0)
+                    })
+                  }
                 });
                 currentY -= headerLineHeight;
             }
@@ -464,7 +493,7 @@ export function ExcelProcessorForm() {
             page.drawLine({
               start: { x: pageLayout.margin, y: rowBottomY },
               end: { x: width - pageLayout.margin, y: rowBottomY },
-              color: rgb(0.8, 0.8, 0.8),
+              color: rgb(0, 0, 0),
               thickness: 0.5
             });
             
