@@ -365,7 +365,8 @@ export function ExcelProcessorForm() {
             width: availableWidth,
             height: headerLineHeight,
             borderColor: rgb(0,0,0),
-            borderWidth: 1.5
+            borderWidth: 1.5,
+            color: rgb(0.85, 0.95, 1),
         })
         let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
@@ -425,7 +426,8 @@ export function ExcelProcessorForm() {
                     width: availableWidth,
                     height: headerLineHeight,
                     borderColor: rgb(0,0,0),
-                    borderWidth: 1.5
+                    borderWidth: 1.5,
+                    color: rgb(0.85, 0.95, 1),
                 });
                 let newX = pageLayout.margin;
                 headers.forEach((header, i) => {
