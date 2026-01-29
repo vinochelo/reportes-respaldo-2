@@ -185,11 +185,20 @@ export function ExcelProcessorForm() {
 
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
-      const docBuffer = await documentosFile.arrayBuffer();
-      const documentosWorkbook = XLSX.read(docBuffer, { type: 'buffer' });
+      const docText = await documentosFile.text();
+      
+      const tableRegex = /<table\b[^>]*>([\s\S]*?)<\/table>/i;
+      const tableMatch = docText.match(tableRegex);
+
+      if (!tableMatch) {
+          throw new Error("No se encontró una tabla HTML en el archivo de documentos. Asegúrese de que el archivo exportado de SAP sea una lista con una tabla.");
+      }
+
+      const tableHtml = tableMatch[0];
+      const documentosWorkbook = XLSX.read(tableHtml, { type: 'string' });
       
       if (documentosWorkbook.SheetNames.length === 0) {
-          throw new Error("No se pudo encontrar una tabla de datos en el archivo de documentos. Asegúrese de que el archivo exportado de SAP sea una lista con una tabla.");
+          throw new Error("No se pudo encontrar una tabla de datos en el archivo de documentos. Asegúrese de que el archivo exportado de SAP sea una lista.");
       }
 
       const documentosSheetName = documentosWorkbook.SheetNames[0];
@@ -212,7 +221,7 @@ export function ExcelProcessorForm() {
         let foundBelnr = -1;
         
         row.forEach((cell, index) => {
-          const normalizedCell = String(cell || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          const normalizedCell = String(cell || '').replace(/[\s\.\r\n\t]+/g, '').toLowerCase();
           
           if (normalizedCell.includes('ebeln') || normalizedCell.includes('doccompr')) {
             foundEbeln = index;
