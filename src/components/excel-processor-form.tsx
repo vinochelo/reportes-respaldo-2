@@ -191,11 +191,13 @@ export function ExcelProcessorForm() {
       const docBuffer = await documentosFile.arrayBuffer();
 
       const parseDocumentsFile = (buffer: ArrayBuffer): { docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null => {
+        
         const findHeadersInSheet = (sheetData: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
             if (!sheetData || sheetData.length === 0) return null;
             for (let i = 0; i < Math.min(sheetData.length, 50); i++) {
                 const row = sheetData[i];
                 if (!Array.isArray(row)) continue;
+                
                 const ebelnIndex = row.findIndex(cell => {
                     const text = String(cell || '').toLowerCase().replace(/[\s._-]/g, '');
                     return text.includes('ebeln') || text.includes('doccompr') || text.includes('pedido');
@@ -204,6 +206,7 @@ export function ExcelProcessorForm() {
                     const text = String(cell || '').toLowerCase().replace(/[\s._-]/g, '');
                     return text.includes('belnr') || text.includes('docmat') || text.includes('nrodoc');
                 });
+
                 if (ebelnIndex !== -1 && belnrIndex !== -1) {
                     return { headerRow: i, ebelnCol: ebelnIndex, belnrCol: belnrIndex };
                 }
@@ -211,7 +214,6 @@ export function ExcelProcessorForm() {
             return null;
         };
 
-        // Signature inspection
         const view = new Uint8Array(buffer, 0, 8);
         const isXlsx = view[0] === 0x50 && view[1] === 0x4B && view[2] === 0x03 && view[3] === 0x04;
         const isXls = view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0 && view[4] === 0xA1 && view[5] === 0xB1 && view[6] === 0x1A && view[7] === 0xE1;
@@ -228,6 +230,7 @@ export function ExcelProcessorForm() {
                         bestSheet = sheetData;
                     }
                 }
+
                 if (bestSheet.length > 0) {
                     const headers = findHeadersInSheet(bestSheet);
                     if (headers) {
@@ -235,36 +238,37 @@ export function ExcelProcessorForm() {
                     }
                 }
             } catch (e) {
-                console.error("Error procesando archivo Excel real:", e);
+                console.error("Error procesando archivo Excel:", e);
             }
-        } else {
-            setProgressMessage("Archivo detectado como HTML. Procesando...");
-            try {
-                const textData = new TextDecoder('latin1').decode(buffer);
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(textData, "text/html");
-                const tables = doc.querySelectorAll('table');
+        }
 
-                if (tables.length > 0) {
-                    let mainTableData: string[][] = [];
-                    tables.forEach(table => {
-                        if (table.rows.length > mainTableData.length) {
-                            mainTableData = Array.from(table.rows).map(row => 
-                                Array.from(row.cells).map(cell => cell.innerText.trim())
-                            );
-                        }
-                    });
+        setProgressMessage("Intentando como archivo HTML...");
+        try {
+            const textData = new TextDecoder('latin1').decode(buffer);
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(textData, "text/html");
+            const tables = doc.querySelectorAll('table');
 
-                    if (mainTableData.length > 0) {
-                        const headers = findHeadersInSheet(mainTableData);
-                        if (headers) {
-                            return { docData: mainTableData, headers: headers };
-                        }
+            if (tables.length > 0) {
+                let mainTableData: string[][] = [];
+                tables.forEach(table => {
+                    const currentTableData = Array.from(table.rows).map(row => 
+                        Array.from(row.cells).map(cell => cell.innerText.trim())
+                    );
+                    if (currentTableData.length > mainTableData.length) {
+                        mainTableData = currentTableData;
+                    }
+                });
+
+                if (mainTableData.length > 0) {
+                    const headers = findHeadersInSheet(mainTableData);
+                    if (headers) {
+                        return { docData: mainTableData, headers: headers };
                     }
                 }
-            } catch (e) {
-                console.error("Error procesando archivo HTML:", e);
             }
+        } catch (e) {
+            console.error("Error procesando archivo como HTML:", e);
         }
 
         return null;
