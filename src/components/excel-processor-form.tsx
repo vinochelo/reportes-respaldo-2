@@ -189,83 +189,78 @@ export function ExcelProcessorForm() {
 
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
-
       const docBuffer = await documentosFile.arrayBuffer();
-      const docUint8 = new Uint8Array(docBuffer);
 
-      let docWorkbook;
-      // Check for XLS/XLSX file signature
-      const isCFB = (arr: Uint8Array) => arr.length > 3 && arr[0] === 0xd0 && arr[1] === 0xcf && arr[2] === 0x11 && arr[3] === 0xe0;
-      const isZIP = (arr: Uint8Array) => arr.length > 3 && arr[0] === 0x50 && arr[1] === 0x4b && arr[2] === 0x03 && arr[3] === 0x04;
-
-      if (isCFB(docUint8) || isZIP(docUint8)) {
-        console.log("File detected as binary Excel (XLS/XLSX).");
-        docWorkbook = XLSX.read(docBuffer, { type: 'buffer' });
-      } else {
-        console.log("File not detected as binary Excel, attempting to parse as HTML/text.");
-        try {
-          // Fallback for SAP's HTML-like export
-          const textData = new TextDecoder('latin1').decode(docBuffer);
-          docWorkbook = XLSX.read(textData, { type: 'string' });
-        } catch (e) {
-          console.error("Failed to parse as text/HTML", e);
-          throw new Error("El archivo de documentos no es un formato de Excel o HTML válido.");
+      const findDataInWorkbook = (workbook: XLSX.WorkBook) => {
+        if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+          return null;
         }
-      }
 
-      if (!docWorkbook || !docWorkbook.SheetNames || docWorkbook.SheetNames.length === 0) {
-        throw new Error("No se pudo leer el archivo de documentos o no contiene hojas de cálculo.");
-      }
-      
-      let docData: any[][] = [];
-      let headers;
-      
-      for (const sheetName of docWorkbook.SheetNames) {
-        const worksheet = docWorkbook.Sheets[sheetName];
-        const currentSheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+        for (const sheetName of workbook.SheetNames) {
+          const worksheet = workbook.Sheets[sheetName];
+          const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+          if (!data || data.length === 0) continue;
 
-        const findHeaders = (data: any[][]) => {
           let headerRow = -1, ebelnCol = -1, belnrCol = -1;
           for (let i = 0; i < data.length; i++) {
-              const row = data[i];
-              if (!Array.isArray(row) || row.length === 0) continue;
+            const row = data[i];
+            if (!Array.isArray(row) || row.length === 0) continue;
 
-              let foundEbeln = -1;
-              let foundBelnr = -1;
-              
-              row.forEach((cell, index) => {
-                  const cellContent = String(cell || '').replace(/\.|\s|&nbsp;/g, '').toLowerCase();
-                  if (cellContent.includes('ebeln') || cellContent.includes('doccompr')) {
-                      if (foundEbeln === -1) foundEbeln = index;
-                  }
-                  if (cellContent.includes('belnr') || cellContent.includes('docmat')) {
-                      if (foundBelnr === -1) foundBelnr = index;
-                  }
-              });
+            let foundEbeln = -1;
+            let foundBelnr = -1;
 
-              if (foundEbeln !== -1 && foundBelnr !== -1) {
-                  headerRow = i;
-                  ebelnCol = foundEbeln;
-                  belnrCol = foundBelnr;
-                  return { headerRow, ebelnCol, belnrCol }; 
+            row.forEach((cell, index) => {
+              const cellContent = String(cell || '').replace(/\.|\s|&nbsp;/g, '').toLowerCase();
+              if (cellContent.includes('ebeln') || cellContent.includes('doccompr')) {
+                if (foundEbeln === -1) foundEbeln = index;
               }
-          }
-          return { headerRow: -1, ebelnCol: -1, belnrCol: -1 };
-        };
+              if (cellContent.includes('belnr') || cellContent.includes('docmat')) {
+                if (foundBelnr === -1) foundBelnr = index;
+              }
+            });
 
-        const currentHeaders = findHeaders(currentSheetData);
-        if (currentHeaders.headerRow !== -1) {
-            docData = currentSheetData;
-            headers = currentHeaders;
-            break; 
+            if (foundEbeln !== -1 && foundBelnr !== -1) {
+              headerRow = i;
+              ebelnCol = foundEbeln;
+              belnrCol = foundBelnr;
+              return {
+                docData: data,
+                headers: { headerRow, ebelnCol, belnrCol }
+              };
+            }
+          }
+        }
+        return null; // Not found in any sheet of this workbook
+      };
+
+      let parseResult = null;
+
+      // Attempt 1: Read as a standard Excel file
+      try {
+        const workbook = XLSX.read(docBuffer, { type: 'buffer' });
+        parseResult = findDataInWorkbook(workbook);
+        if (parseResult) console.log("Successfully parsed as binary Excel.");
+      } catch (e) {
+        console.log("Could not parse as binary Excel. Will try as text/HTML.");
+      }
+
+      // Attempt 2: If first attempt failed, read as text/HTML
+      if (!parseResult) {
+        try {
+          const textData = new TextDecoder('latin1').decode(docBuffer);
+          const workbook = XLSX.read(textData, { type: 'string' });
+          parseResult = findDataInWorkbook(workbook);
+          if (parseResult) console.log("Successfully parsed as text/HTML.");
+        } catch (e) {
+          console.error("Also failed to parse as text/HTML.", e);
         }
       }
 
-      if (!headers || headers.headerRow === -1) {
-          const dataSample = (docData.length > 0 ? docData : [["No se pudo leer el archivo o está vacío."]]).slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
-          throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas:\n${dataSample}`);
+      if (!parseResult) {
+        throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos. Por favor, asegúrate de que el archivo es correcto y no está dañado.");
       }
-      
+
+      const { docData, headers } = parseResult;
       const {headerRow: docHeaderRowIndex, ebelnCol: ebelnColIndex, belnrCol: belnrColIndex } = headers;
 
       const belnrToEbelnMap = new Map<string, string>();
@@ -810,3 +805,5 @@ export function ExcelProcessorForm() {
     </div>
   );
 }
+
+    
