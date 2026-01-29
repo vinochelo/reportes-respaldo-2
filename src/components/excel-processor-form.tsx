@@ -201,8 +201,8 @@ export function ExcelProcessorForm() {
         throw new Error("El archivo de documentos (Tabla EKBE) parece estar vacío o en un formato no reconocido.");
       }
       
-      const ebelnRegex = /EBELN|doc\.\s*compr/i;
-      const belnrRegex = /BELNR|doc\.\s*mat/i;
+      const ebelnRegex = /ebeln|doc[\s\S]*compr/i;
+      const belnrRegex = /belnr|doc[\s\S]*mat/i;
 
       let docHeaderRowIndex = -1;
       let ebelnColIndex = -1;
