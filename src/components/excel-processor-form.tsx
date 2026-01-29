@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -193,6 +194,7 @@ export function ExcelProcessorForm() {
       let docHeaderRowIndex = -1;
       let ebelnColIndex = -1;
       let belnrColIndex = -1;
+      let headers;
 
       const findHeaders = (data: any[][]) => {
           let headerRow = -1, ebelnCol = -1, belnrCol = -1;
@@ -204,7 +206,7 @@ export function ExcelProcessorForm() {
               let foundBelnr = -1;
               
               row.forEach((cell, index) => {
-                  const cellContent = String(cell || '').replace(/\.|\s/g, '').toLowerCase();
+                  const cellContent = String(cell || '').replace(/\.|\s|&nbsp;/g, '').toLowerCase();
                   if (cellContent.includes('ebeln') || cellContent.includes('doccompr')) {
                       if (foundEbeln === -1) foundEbeln = index;
                   }
@@ -222,51 +224,55 @@ export function ExcelProcessorForm() {
           }
           return { headerRow, ebelnCol, belnrCol };
       };
+
+      const buffer = await documentosFile.arrayBuffer();
+      // INTENTO 1: Leer como archivo de Excel binario
+      let workbook = XLSX.read(buffer, { type: 'buffer' });
       
-      try {
-          const buffer = await documentosFile.arrayBuffer();
-          const workbook = XLSX.read(buffer, { type: 'buffer' });
-
-          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-            throw new Error("El archivo de documentos parece estar vacío o en un formato no reconocido.");
+      // Encontrar la hoja con más datos para analizar
+      let bestSheetName = workbook.SheetNames[0];
+      let maxRows = 0;
+      for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          const sheetData: any[][] = XLSX.utils.sheet_to_json(sheet, {header: 1});
+          if (sheetData.length > maxRows) {
+              maxRows = sheetData.length;
+              bestSheetName = sheetName;
           }
+      }
+      let worksheet = workbook.Sheets[bestSheetName];
+      docData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+      headers = findHeaders(docData);
+      
+      // INTENTO 2: Si no se encontraron headers, reintentar leyendo como HTML
+      if (headers.headerRow === -1) {
+          console.warn("Headers not found in binary parse. Retrying as HTML string.");
+          try {
+            const textData = new TextDecoder('latin1').decode(buffer);
+            workbook = XLSX.read(textData, { type: 'string' });
+            
+            if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+              throw new Error("La relectura como HTML no produjo ninguna hoja de cálculo.");
+            }
 
-          let foundSheet = false;
-          for (const sheetName of workbook.SheetNames) {
-              const worksheet = workbook.Sheets[sheetName];
-              const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-              
-              const headers = findHeaders(data);
-              
-              if (headers.headerRow !== -1) {
-                  // This is the correct sheet!
-                  docData = data;
-                  docHeaderRowIndex = headers.headerRow;
-                  ebelnColIndex = headers.ebelnCol;
-                  belnrColIndex = headers.belnrCol;
-                  foundSheet = true;
-                  break; // Exit the loop once we find the right sheet
-              }
+            worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            docData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            headers = findHeaders(docData);
+          } catch(e) {
+             console.error("Fallo el reintento como HTML", e);
           }
-          
-          if (!foundSheet) {
-            // If we loop through all sheets and find nothing, we need to know what was in the "best" but wrong sheet.
-            // For diagnostics, let's just grab the data from the first sheet to show in the error.
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            docData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
-          }
-
-      } catch (e) {
-          console.error("Error processing documents file:", e);
-          const errorMessage = e instanceof Error ? e.message : String(e);
-          throw new Error(`Falló la lectura del archivo de documentos. Error original: ${errorMessage}`);
       }
 
-      if (docHeaderRowIndex === -1) {
+      // Verificación final después de todos los intentos
+      if (headers.headerRow === -1) {
           const dataSample = (docData.length > 0 ? docData : [["No se pudo leer el archivo o está vacío."]]).slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
-          throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en ninguna hoja del archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas de la primera hoja:\n${dataSample}`);
+          throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas:\n${dataSample}`);
       }
       
+      docHeaderRowIndex = headers.headerRow;
+      ebelnColIndex = headers.ebelnCol;
+      belnrColIndex = headers.belnrCol;
+
       const belnrToEbelnMap = new Map<string, string>();
       const docDataRows = docData.slice(docHeaderRowIndex + 1);
       for (const row of docDataRows) {
@@ -808,4 +814,5 @@ export function ExcelProcessorForm() {
       </div>
     </div>
   );
-}
+
+    
