@@ -191,7 +191,6 @@ export function ExcelProcessorForm() {
       const docBuffer = await documentosFile.arrayBuffer();
 
       const parseDocumentsFile = (buffer: ArrayBuffer): { docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null => {
-        
         const findHeadersInSheet = (sheetData: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
             if (!sheetData || sheetData.length === 0) return null;
             for (let i = 0; i < Math.min(sheetData.length, 50); i++) {
@@ -214,61 +213,52 @@ export function ExcelProcessorForm() {
             return null;
         };
 
-        const view = new Uint8Array(buffer, 0, 8);
-        const isXlsx = view[0] === 0x50 && view[1] === 0x4B && view[2] === 0x03 && view[3] === 0x04;
-        const isXls = view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0 && view[4] === 0xA1 && view[5] === 0xB1 && view[6] === 0x1A && view[7] === 0xE1;
-
-        if (isXlsx || isXls) {
-            setProgressMessage("Archivo detectado como Excel. Procesando...");
-            try {
-                const workbook = XLSX.read(buffer, { type: 'buffer' });
-                let bestSheet: any[][] = [];
-                for (const sheetName of workbook.SheetNames) {
-                    const worksheet = workbook.Sheets[sheetName];
-                    const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                    if (sheetData.length > bestSheet.length) {
-                        bestSheet = sheetData;
-                    }
+        // --- Attempt 1: Parse as standard Excel ---
+        try {
+            setProgressMessage("Paso 1/2: Intentando leer como Excel...");
+            const workbook = XLSX.read(buffer, { type: 'buffer' });
+            for (const sheetName of workbook.SheetNames) {
+                const worksheet = workbook.Sheets[sheetName];
+                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                const headers = findHeadersInSheet(sheetData);
+                if (headers) {
+                    setProgressMessage("Éxito al leer como Excel.");
+                    return { docData: sheetData, headers };
                 }
-
-                if (bestSheet.length > 0) {
-                    const headers = findHeadersInSheet(bestSheet);
-                    if (headers) {
-                        return { docData: bestSheet, headers: headers };
-                    }
-                }
-            } catch (e) {
-                console.error("Error procesando archivo Excel:", e);
             }
+        } catch (e) {
+            console.warn("Fallo al leer como Excel, intentando como HTML.", e);
         }
 
-        setProgressMessage("Intentando como archivo HTML...");
+        // --- Attempt 2: Parse as HTML using DOMParser ---
         try {
+            setProgressMessage("Paso 2/2: Intentando leer como HTML...");
             const textData = new TextDecoder('latin1').decode(buffer);
             const parser = new DOMParser();
             const doc = parser.parseFromString(textData, "text/html");
             const tables = doc.querySelectorAll('table');
-
+            
             if (tables.length > 0) {
-                let mainTableData: string[][] = [];
-                tables.forEach(table => {
-                    const currentTableData = Array.from(table.rows).map(row => 
-                        Array.from(row.cells).map(cell => cell.innerText.trim())
-                    );
-                    if (currentTableData.length > mainTableData.length) {
-                        mainTableData = currentTableData;
-                    }
-                });
+              let bestTableData: string[][] = [];
+              tables.forEach(table => {
+                  const currentTableData = Array.from(table.rows).map(row => 
+                      Array.from(row.cells).map(cell => cell.innerText.trim())
+                  );
+                  if (currentTableData.length > bestTableData.length) {
+                      bestTableData = currentTableData;
+                  }
+              });
 
-                if (mainTableData.length > 0) {
-                    const headers = findHeadersInSheet(mainTableData);
-                    if (headers) {
-                        return { docData: mainTableData, headers: headers };
-                    }
-                }
+              if (bestTableData.length > 0) {
+                  const headers = findHeadersInSheet(bestTableData);
+                  if (headers) {
+                      setProgressMessage("Éxito al leer como HTML.");
+                      return { docData: bestTableData, headers };
+                  }
+              }
             }
         } catch (e) {
-            console.error("Error procesando archivo como HTML:", e);
+            console.warn("Fallo al leer como HTML con DOMParser.", e);
         }
 
         return null;
