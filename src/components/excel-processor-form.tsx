@@ -146,6 +146,7 @@ export function ExcelProcessorForm() {
     }
 
     setStatus("processing");
+    const processedEbelns = new Set<string>();
 
     try {
       // 1. Process "Reporte de Utilidad"
@@ -190,14 +191,14 @@ export function ExcelProcessorForm() {
       const docWorksheet = docWorkbook.Sheets[docSheetName];
       const docData: any[][] = XLSX.utils.sheet_to_json(docWorksheet, { header: 1 });
 
-      const ebelnNames = ['EBELN', 'Doc.compr.'];
-      const belnrNames = ['BELNR', 'Doc.mat.'];
+      const ebelnNames = ['EBELN', 'Doc.compr'];
+      const belnrNames = ['BELNR', 'Doc.mat'];
 
       const docHeaderRowIndex = docData.findIndex(row => {
         if (!Array.isArray(row)) return false;
         const upperCaseCells = row.map(cell => String(cell || '').trim().toUpperCase());
-        const hasEbeln = ebelnNames.some(name => upperCaseCells.includes(name.toUpperCase()));
-        const hasBelnr = belnrNames.some(name => upperCaseCells.includes(name.toUpperCase()));
+        const hasEbeln = ebelnNames.some(name => upperCaseCells.some(c => c.startsWith(name.toUpperCase())));
+        const hasBelnr = belnrNames.some(name => upperCaseCells.some(c => c.startsWith(name.toUpperCase())));
         return hasEbeln && hasBelnr;
       });
 
@@ -208,7 +209,7 @@ export function ExcelProcessorForm() {
       
       const findColumnIndex = (headers: string[], possibleNames: string[]): number => {
         for (const name of possibleNames) {
-            const index = headers.indexOf(name.toUpperCase());
+            const index = headers.findIndex(h => h.startsWith(name.toUpperCase()));
             if (index !== -1) return index;
         }
         return -1;
@@ -218,7 +219,10 @@ export function ExcelProcessorForm() {
       const belnrColIndex = findColumnIndex(docHeaders, belnrNames);
 
       if (ebelnColIndex === -1 || belnrColIndex === -1) {
-          throw new Error("No se encontraron las columnas ('EBELN' o 'Doc.compr.') o ('BELNR' o 'Doc.mat.') en el archivo de documentos.");
+          const missingCols = [];
+          if (ebelnColIndex === -1) missingCols.push("EBELN/Doc.compr");
+          if (belnrColIndex === -1) missingCols.push("BELNR/Doc.mat");
+          throw new Error(`No se pudieron encontrar las columnas requeridas: ${missingCols.join(' y ')}.`);
       }
 
       const belnrToEbelnMap = new Map<string, string>();
@@ -562,7 +566,6 @@ export function ExcelProcessorForm() {
         return { finalY: currentY, finalPage: page };
       };
 
-      const processedEbelns = new Set<string>();
       let pagesAdded = 0;
 
       for (const belnr of sortedBelnrs) {
