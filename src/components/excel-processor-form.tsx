@@ -223,38 +223,38 @@ export function ExcelProcessorForm() {
           return { headerRow, ebelnCol, belnrCol };
       };
       
-      // Unified reading logic: Read as buffer and let XLSX figure it out.
       try {
           const buffer = await documentosFile.arrayBuffer();
           const workbook = XLSX.read(buffer, { type: 'buffer' });
 
           if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-            throw new Error("El archivo de documentos parece estar vacío o en un formato no reconocido por la librería.");
+            throw new Error("El archivo de documentos parece estar vacío o en un formato no reconocido.");
           }
 
-          let bestSheetData: any[][] = [];
-          let maxRows = -1;
-
-          // Find the sheet with the most data, as SAP exports can have multiple "sheets".
+          let foundSheet = false;
           for (const sheetName of workbook.SheetNames) {
               const worksheet = workbook.Sheets[sheetName];
               const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-              if (data.length > maxRows) {
-                  maxRows = data.length;
-                  bestSheetData = data;
+              
+              const headers = findHeaders(data);
+              
+              if (headers.headerRow !== -1) {
+                  // This is the correct sheet!
+                  docData = data;
+                  docHeaderRowIndex = headers.headerRow;
+                  ebelnColIndex = headers.ebelnCol;
+                  belnrColIndex = headers.belnrCol;
+                  foundSheet = true;
+                  break; // Exit the loop once we find the right sheet
               }
           }
           
-          docData = bestSheetData;
-
-          if (docData.length === 0) {
-            throw new Error("No se pudo extraer ninguna tabla de datos válida del archivo de documentos.");
+          if (!foundSheet) {
+            // If we loop through all sheets and find nothing, we need to know what was in the "best" but wrong sheet.
+            // For diagnostics, let's just grab the data from the first sheet to show in the error.
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            docData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
           }
-          
-          const headers = findHeaders(docData);
-          docHeaderRowIndex = headers.headerRow;
-          ebelnColIndex = headers.ebelnCol;
-          belnrColIndex = headers.belnrCol;
 
       } catch (e) {
           console.error("Error processing documents file:", e);
@@ -262,10 +262,9 @@ export function ExcelProcessorForm() {
           throw new Error(`Falló la lectura del archivo de documentos. Error original: ${errorMessage}`);
       }
 
-      // FINAL CHECK
       if (docHeaderRowIndex === -1) {
           const dataSample = (docData.length > 0 ? docData : [["No se pudo leer el archivo o está vacío."]]).slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
-          throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas:\n${dataSample}`);
+          throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en ninguna hoja del archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas de la primera hoja:\n${dataSample}`);
       }
       
       const belnrToEbelnMap = new Map<string, string>();
