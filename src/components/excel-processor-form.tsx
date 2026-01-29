@@ -235,7 +235,7 @@ export function ExcelProcessorForm() {
       const docBuffer = await documentosFile.arrayBuffer();
 
       if (isExcelFile(docBuffer)) {
-        setProgressMessage("Leyendo como archivo Excel...");
+        setProgressMessage("Archivo detectado como Excel. Leyendo...");
         const docWorkbook = XLSX.read(docBuffer, { type: "buffer" });
         let bestSheet: any[][] = [];
         for (const sheetName of docWorkbook.SheetNames) {
@@ -248,7 +248,7 @@ export function ExcelProcessorForm() {
         docData = bestSheet;
         headers = findHeadersInArray(docData);
       } else {
-        setProgressMessage("Leyendo como archivo HTML (SAP)...");
+        setProgressMessage("Archivo no es Excel. Intentando leer como HTML de SAP...");
         try {
             const textData = new TextDecoder('latin1').decode(docBuffer);
             const parser = new DOMParser();
