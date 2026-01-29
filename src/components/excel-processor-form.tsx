@@ -201,11 +201,11 @@ export function ExcelProcessorForm() {
             if (!Array.isArray(row)) continue;
     
             const ebelnIndex = row.findIndex(cell => {
-                const text = String(cell || '').toLowerCase().replace(/[\s.]/g, '');
+                const text = String(cell || '').toLowerCase().replace(/[\s._-]/g, '');
                 return text.includes('ebeln') || text.includes('doccompr') || text.includes('pedido');
             });
             const belnrIndex = row.findIndex(cell => {
-                const text = String(cell || '').toLowerCase().replace(/[\s.]/g, '');
+                const text = String(cell || '').toLowerCase().replace(/[\s._-]/g, '');
                 return text.includes('belnr') || text.includes('docmat') || text.includes('nrodoc');
             });
     
@@ -251,7 +251,9 @@ export function ExcelProcessorForm() {
 
           for (const table of tables) {
             const dataFromHtml: any[][] = Array.from(table.querySelectorAll('tr')).map(row =>
-              Array.from(row.querySelectorAll('td, th')).map(cell => cell.textContent?.trim() || '')
+              Array.from(row.querySelectorAll('td, th')).map(cell => 
+                (cell as HTMLElement).innerText?.trim() || ''
+              )
             ).filter(row => row.some(cell => cell !== ''));
             
             if (dataFromHtml.length > 0) {
