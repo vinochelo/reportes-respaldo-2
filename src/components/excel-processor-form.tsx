@@ -189,29 +189,20 @@ export function ExcelProcessorForm() {
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
       
-      let documentosWorkbook: XLSX.WorkBook;
       const documentosBuffer = await documentosFile.arrayBuffer();
-
-      try {
-        // Heuristic to check if the file is HTML-based (common for SAP .xls exports)
-        const fileStartContent = new TextDecoder().decode(documentosBuffer.slice(0, 1024)).toLowerCase();
-        
-        if (fileStartContent.includes('<html') || fileStartContent.includes('<table')) {
-          // If it looks like HTML, decode the whole thing and let XLSX parse the string.
-          // Using 'latin1' for broader compatibility with SAP exports.
-          const fileAsText = new TextDecoder('latin1').decode(documentosBuffer);
-          documentosWorkbook = XLSX.read(fileAsText, { type: 'string' });
-        } else {
-          // If not, treat it as a standard binary Excel file.
-          documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer', cellDates: true });
-        }
-      } catch (e) {
-        console.error("Error al leer el archivo de documentos (Tabla EKBE):", e);
-        throw new Error("No se pudo leer el archivo de documentos (Tabla EKBE). Verifique que el archivo no esté corrupto y sea un formato de Excel o HTML exportado de SAP válido.");
-      }
+      let documentosWorkbook: XLSX.WorkBook;
       
+      try {
+        // Let XLSX sniff the file type. It's smart enough to handle various formats,
+        // including binary Excel, and HTML/MHTML files exported from SAP.
+        documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer', cellDates: true });
+      } catch (e) {
+         console.error("Error al leer el archivo de documentos (Tabla EKBE):", e);
+         throw new Error("No se pudo leer el archivo de documentos (Tabla EKBE). Verifique que el archivo no esté corrupto y sea un formato de Excel o una exportación de SAP válida.");
+      }
+
       if (!documentosWorkbook || documentosWorkbook.SheetNames.length === 0) {
-          throw new Error("No se pudo encontrar una hoja de datos en el archivo de documentos. Asegúrese de que el archivo es un Excel válido.");
+          throw new Error("No se pudo encontrar una hoja de datos en el archivo de documentos. Asegúrese de que el archivo es un Excel válido o una exportación de SAP.");
       }
 
       const documentosSheetName = documentosWorkbook.SheetNames[0];
@@ -234,12 +225,13 @@ export function ExcelProcessorForm() {
         let foundBelnr = -1;
         
         row.forEach((cell, index) => {
-          const normalizedCell = String(cell || '').replace(/[\s\.\r\n\t]+/g, '').toLowerCase();
-          
-          if (normalizedCell.includes('ebeln') || normalizedCell.includes('doccompr')) {
+          const cellContent = String(cell || '');
+          // This regex is more robust. It looks for 'ebeln' or 'doc', optional whitespace, a dot, optional whitespace, and then 'compr'.
+          // It's also case-insensitive (the 'i' flag) and handles newlines within the cell.
+          if (/ebeln/i.test(cellContent) || /doc\s*\.?\s*compr/i.test(cellContent)) {
             foundEbeln = index;
           }
-          if (normalizedCell.includes('belnr') || normalizedCell.includes('docmat')) {
+          if (/belnr/i.test(cellContent) || /doc\s*\.?\s*mat/i.test(cellContent)) {
             foundBelnr = index;
           }
         });
@@ -254,7 +246,7 @@ export function ExcelProcessorForm() {
       
       if (docHeaderRowIndex === -1) {
           const dataSample = docData.slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
-          throw new Error(`No se encontró la fila de encabezado. Así es como se están leyendo las primeras 10 filas del archivo de documentos:\\n${dataSample}`);
+          throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas:\n${dataSample}`);
       }
 
       const belnrToEbelnMap = new Map<string, string>();
@@ -724,7 +716,7 @@ export function ExcelProcessorForm() {
                   <strong>Subir Reporte de Utilidad:</strong> Carga tu reporte principal de utilidad en formato Excel (.xlsx o .xls).
                 </li>
                  <li>
-                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE en formato Excel (.xlsx o .xls). Este puede ser el archivo exportado directamente desde SAP.
+                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE. Puede ser un archivo Excel (.xlsx, .xls) o el archivo exportado directamente desde SAP (generalmente con extensión .xls pero formato HTML).
                 </li>
                 <li>
                   <strong>Enlace de Datos:</strong> La aplicación asocia los números de documento (BELNR) del segundo archivo con sus órdenes de compra (EBELN / Ord. de Compra) correspondientes en el primer archivo.
