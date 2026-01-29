@@ -185,9 +185,8 @@ export function ExcelProcessorForm() {
 
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
-      const docText = await documentosFile.text();
-      // The file can be an HTML file saved as .xls. The `xlsx` library can parse HTML tables from a string.
-      const documentosWorkbook = XLSX.read(docText, { type: "string" });
+      const docBuffer = await documentosFile.arrayBuffer();
+      const documentosWorkbook = XLSX.read(docBuffer, { type: 'buffer' });
       
       if (documentosWorkbook.SheetNames.length === 0) {
           throw new Error("No se pudo encontrar una tabla de datos en el archivo de documentos. Asegúrese de que el archivo exportado de SAP sea una lista con una tabla.");
@@ -213,7 +212,6 @@ export function ExcelProcessorForm() {
         let foundBelnr = -1;
         
         row.forEach((cell, index) => {
-          // Normalize the cell content by removing all non-alphanumeric characters and converting to lower case.
           const normalizedCell = String(cell || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
           
           if (normalizedCell.includes('ebeln') || normalizedCell.includes('doccompr')) {
