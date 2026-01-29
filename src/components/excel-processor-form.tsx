@@ -200,36 +200,37 @@ export function ExcelProcessorForm() {
       if (!docData || docData.length === 0) {
         throw new Error("El archivo de documentos (Tabla EKBE) parece estar vacío o en un formato no reconocido.");
       }
-
+      
       const ebelnRegex = /(EBELN|Doc\.\s*compr)/i;
       const belnrRegex = /(BELNR|Doc\.\s*mat)/i;
-      
-      const docHeaderRowIndex = docData.findIndex(row => {
-        if (!Array.isArray(row)) return false;
-        const hasEbeln = row.some(cell => ebelnRegex.test(String(cell || '')));
-        const hasBelnr = row.some(cell => belnrRegex.test(String(cell || '')));
-        return hasEbeln && hasBelnr;
-      });
+
+      let docHeaderRowIndex = -1;
+      let ebelnColIndex = -1;
+      let belnrColIndex = -1;
+
+      for (let i = 0; i < docData.length; i++) {
+        const row = docData[i];
+        if (!Array.isArray(row)) continue;
+
+        const foundEbelnIndex = row.findIndex(cell => ebelnRegex.test(String(cell || '')));
+        const foundBelnrIndex = row.findIndex(cell => belnrRegex.test(String(cell || '')));
+
+        if (foundEbelnIndex !== -1 && foundBelnrIndex !== -1) {
+          docHeaderRowIndex = i;
+          ebelnColIndex = foundEbelnIndex;
+          belnrColIndex = foundBelnrIndex;
+          break; // Found the header row
+        }
+      }
       
       if (docHeaderRowIndex === -1) {
           throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.");
-      }
-      
-      const docHeaders = docData[docHeaderRowIndex].map(h => String(h || '').trim());
-      
-      const ebelnColIndex = docHeaders.findIndex(h => ebelnRegex.test(h));
-      const belnrColIndex = docHeaders.findIndex(h => belnrRegex.test(h));
-
-      if (ebelnColIndex === -1 || belnrColIndex === -1) {
-          const missingCols = [];
-          if (ebelnColIndex === -1) missingCols.push("EBELN/Doc.compr");
-          if (belnrColIndex === -1) missingCols.push("BELNR/Doc.mat");
-          throw new Error(`La fila de encabezado encontrada no contiene ambas columnas necesarias. Faltan: ${missingCols.join(' y ')}. Por favor, verifique el archivo.`);
       }
 
       const belnrToEbelnMap = new Map<string, string>();
       const docDataRows = docData.slice(docHeaderRowIndex + 1);
       for (const row of docDataRows) {
+          if (!row[ebelnColIndex] || !row[belnrColIndex]) continue;
           const ebeln = row[ebelnColIndex];
           const belnr = row[belnrColIndex];
           if (ebeln && belnr) {
