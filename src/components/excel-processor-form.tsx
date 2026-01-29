@@ -226,10 +226,31 @@ export function ExcelProcessorForm() {
       };
 
       const buffer = await documentosFile.arrayBuffer();
-      // INTENTO 1: Leer como archivo de Excel binario
-      let workbook = XLSX.read(buffer, { type: 'buffer' });
+      const uint8 = new Uint8Array(buffer);
       
-      // Encontrar la hoja con más datos para analizar
+      const isCFB = (arr: Uint8Array) => arr.length > 3 && arr[0] === 0xd0 && arr[1] === 0xcf && arr[2] === 0x11 && arr[3] === 0xe0; // XLS
+      const isZIP = (arr: Uint8Array) => arr.length > 3 && arr[0] === 0x50 && arr[1] === 0x4b && arr[2] === 0x03 && arr[3] === 0x04; // XLSX
+
+      let workbook;
+
+      if (isCFB(uint8) || isZIP(uint8)) {
+        console.log("File detected as binary Excel (XLS/XLSX).");
+        workbook = XLSX.read(buffer, { type: 'buffer' });
+      } else {
+        console.log("File not detected as binary Excel, attempting to parse as HTML/text.");
+        try {
+          const textData = new TextDecoder('latin1').decode(buffer);
+          workbook = XLSX.read(textData, { type: 'string' });
+        } catch (e) {
+          console.error("Failed to parse as text/HTML", e);
+          throw new Error("El archivo de documentos no es un formato de Excel o HTML válido.");
+        }
+      }
+
+      if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+        throw new Error("No se pudo leer el archivo de documentos o no contiene hojas de cálculo.");
+      }
+      
       let bestSheetName = workbook.SheetNames[0];
       let maxRows = 0;
       for (const sheetName of workbook.SheetNames) {
@@ -244,26 +265,6 @@ export function ExcelProcessorForm() {
       docData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
       headers = findHeaders(docData);
       
-      // INTENTO 2: Si no se encontraron headers, reintentar leyendo como HTML
-      if (headers.headerRow === -1) {
-          console.warn("Headers not found in binary parse. Retrying as HTML string.");
-          try {
-            const textData = new TextDecoder('latin1').decode(buffer);
-            workbook = XLSX.read(textData, { type: 'string' });
-            
-            if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-              throw new Error("La relectura como HTML no produjo ninguna hoja de cálculo.");
-            }
-
-            worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            docData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-            headers = findHeaders(docData);
-          } catch(e) {
-             console.error("Fallo el reintento como HTML", e);
-          }
-      }
-
-      // Verificación final después de todos los intentos
       if (headers.headerRow === -1) {
           const dataSample = (docData.length > 0 ? docData : [["No se pudo leer el archivo o está vacío."]]).slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
           throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas:\n${dataSample}`);
@@ -814,5 +815,7 @@ export function ExcelProcessorForm() {
       </div>
     </div>
   );
+
+    
 
     
