@@ -191,14 +191,14 @@ export function ExcelProcessorForm() {
       const docWorksheet = docWorkbook.Sheets[docSheetName];
       const docData: any[][] = XLSX.utils.sheet_to_json(docWorksheet, { header: 1 });
 
-      const ebelnNames = ['EBELN', 'Doc.compr'];
-      const belnrNames = ['BELNR', 'Doc.mat'];
+      const ebelnRegex = /EBELN|DOC\.?COMPR/;
+      const belnrRegex = /BELNR|DOC\.?MAT/;
 
       const docHeaderRowIndex = docData.findIndex(row => {
         if (!Array.isArray(row)) return false;
         const upperCaseCells = row.map(cell => String(cell || '').trim().toUpperCase());
-        const hasEbeln = ebelnNames.some(name => upperCaseCells.some(c => c.includes(name.toUpperCase())));
-        const hasBelnr = belnrNames.some(name => upperCaseCells.some(c => c.includes(name.toUpperCase())));
+        const hasEbeln = upperCaseCells.some(c => ebelnRegex.test(c));
+        const hasBelnr = upperCaseCells.some(c => belnrRegex.test(c));
         return hasEbeln && hasBelnr;
       });
 
@@ -207,16 +207,8 @@ export function ExcelProcessorForm() {
       }
       const docHeaders = docData[docHeaderRowIndex].map(h => String(h || '').trim().toUpperCase());
       
-      const findColumnIndex = (headers: string[], possibleNames: string[]): number => {
-        for (const name of possibleNames) {
-            const index = headers.findIndex(h => h.includes(name.toUpperCase()));
-            if (index !== -1) return index;
-        }
-        return -1;
-      };
-
-      const ebelnColIndex = findColumnIndex(docHeaders, ebelnNames);
-      const belnrColIndex = findColumnIndex(docHeaders, belnrNames);
+      const ebelnColIndex = docHeaders.findIndex(h => ebelnRegex.test(h));
+      const belnrColIndex = docHeaders.findIndex(h => belnrRegex.test(h));
 
       if (ebelnColIndex === -1 || belnrColIndex === -1) {
           const missingCols = [];
