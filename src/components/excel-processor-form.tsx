@@ -193,9 +193,8 @@ export function ExcelProcessorForm() {
       let documentosWorkbook: XLSX.WorkBook;
       
       try {
-        // Let XLSX sniff the file type. It's smart enough to handle various formats,
-        // including binary Excel, and HTML/MHTML files exported from SAP.
-        documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer', cellDates: true });
+        // Let XLSX sniff the file type. It's smart enough to handle various formats.
+        documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer' });
       } catch (e) {
          console.error("Error al leer el archivo de documentos (Tabla EKBE):", e);
          throw new Error("No se pudo leer el archivo de documentos (Tabla EKBE). Verifique que el archivo no esté corrupto y sea un formato de Excel o una exportación de SAP válida.");
@@ -204,10 +203,18 @@ export function ExcelProcessorForm() {
       if (!documentosWorkbook || documentosWorkbook.SheetNames.length === 0) {
           throw new Error("No se pudo encontrar una hoja de datos en el archivo de documentos. Asegúrese de que el archivo es un Excel válido o una exportación de SAP.");
       }
-
-      const documentosSheetName = documentosWorkbook.SheetNames[0];
-      const documentosWorksheet = documentosWorkbook.Sheets[documentosSheetName];
-      const docData: any[][] = XLSX.utils.sheet_to_json(documentosWorksheet, { header: 1, defval: "" });
+      
+      let docData: any[][] = [];
+      // Find the sheet with the most data, as SAP exports can have multiple weird sheets.
+      let maxRows = 0;
+      for (const sheetName of documentosWorkbook.SheetNames) {
+        const currentSheet = documentosWorkbook.Sheets[sheetName];
+        const currentData = XLSX.utils.sheet_to_json(currentSheet, { header: 1, defval: "" });
+        if (currentData.length > maxRows) {
+          maxRows = currentData.length;
+          docData = currentData;
+        }
+      }
 
       if (!docData || docData.length === 0) {
         throw new Error("El archivo de documentos (Tabla EKBE) parece estar vacío o en un formato no reconocido.");
@@ -226,12 +233,11 @@ export function ExcelProcessorForm() {
         
         row.forEach((cell, index) => {
           const cellContent = String(cell || '');
-          // This regex is more robust. It looks for 'ebeln' or 'doc', optional whitespace, a dot, optional whitespace, and then 'compr'.
-          // It's also case-insensitive (the 'i' flag) and handles newlines within the cell.
-          if (/ebeln/i.test(cellContent) || /doc\s*\.?\s*compr/i.test(cellContent)) {
+          // This regex is more robust. It looks for 'ebeln' or 'doc', optional whitespace/dot, and then 'compr'.
+          if (/ebeln/i.test(cellContent) || /doc\s*(\.|\s)*\s*compr/i.test(cellContent)) {
             foundEbeln = index;
           }
-          if (/belnr/i.test(cellContent) || /doc\s*\.?\s*mat/i.test(cellContent)) {
+          if (/belnr/i.test(cellContent) || /doc\s*(\.|\s)*\s*mat/i.test(cellContent)) {
             foundBelnr = index;
           }
         });
