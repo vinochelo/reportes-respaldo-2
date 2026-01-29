@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -206,15 +205,13 @@ export function ExcelProcessorForm() {
 
       let documentosWorkbook: XLSX.WorkBook;
       if (isRealExcel(docBuffer)) {
-          console.log("File signature detected as Excel. Reading as 'buffer'.");
           documentosWorkbook = XLSX.read(docBuffer, { type: 'buffer' });
       } else {
-          console.log("File signature not detected as Excel. Assuming HTML/text format. Reading as 'string'.");
           try {
               const textData = new TextDecoder('latin1').decode(docBuffer);
               documentosWorkbook = XLSX.read(textData, { type: 'string' });
           } catch(e) {
-              throw new Error("No se pudo leer el archivo de documentos como texto. Es posible que esté dañado o en un formato no compatible.");
+              throw new Error("No se pudo leer el archivo de documentos. Es posible que esté dañado o en un formato no compatible.");
           }
       }
 
