@@ -206,7 +206,10 @@ export function ExcelProcessorForm() {
       
       const docHeaderRowIndex = docData.findIndex(row => {
         if (!Array.isArray(row)) return false;
-        return row.some(cell => ebelnRegex.test(String(cell || ''))) || row.some(cell => belnrRegex.test(String(cell || '')));
+        // Join all cell contents into a single string for robust matching.
+        // This helps find the header row even if there are formatting issues.
+        const fullRowString = row.map(cell => String(cell || '')).join(' | ');
+        return ebelnRegex.test(fullRowString) && belnrRegex.test(fullRowString);
       });
       
       if (docHeaderRowIndex === -1) {
