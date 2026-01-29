@@ -195,7 +195,7 @@ export function ExcelProcessorForm() {
 
       const documentosSheetName = documentosWorkbook.SheetNames[0];
       const documentosWorksheet = documentosWorkbook.Sheets[documentosSheetName];
-      const docData: any[][] = XLSX.utils.sheet_to_json(documentosWorksheet, { header: 1 });
+      const docData: any[][] = XLSX.utils.sheet_to_json(documentosWorksheet, { header: 1, defval: "" });
 
       if (!docData || docData.length === 0) {
         throw new Error("El archivo de documentos (Tabla EKBE) parece estar vacío o en un formato no reconocido.");
