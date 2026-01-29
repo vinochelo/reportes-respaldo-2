@@ -190,20 +190,9 @@ export function ExcelProcessorForm() {
       setProgressMessage("Leyendo reporte tabla EKBE...");
       const docBuffer = await documentosFile.arrayBuffer();
       
-      const isRealExcel = (buffer: ArrayBuffer): boolean => {
-        const view = new Uint8Array(buffer);
-        // XLSX (PKZIP) signature
-        if (view.length > 4 && view[0] === 0x50 && view[1] === 0x4B && view[2] === 0x03 && view[3] === 0x04) {
-          return true;
-        }
-        // XLS (OLE CF) signature
-        if (view.length > 8 && view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0 && view[4] === 0xA1 && view[5] === 0xB1 && view[6] === 0x1A && view[7] === 0xE1) {
-          return true;
-        }
-        return false;
-      };
+      type ParseResult = { docData: any[][], headers: { headerRow: number, ebelnCol: number, belnrCol: number } };
 
-      const findHeadersInArray = (data: any[][]) => {
+      const findHeadersInArray = (data: any[][]): ParseResult | null => {
           if (!data || data.length === 0) return null;
           let headerRow = -1, ebelnCol = -1, belnrCol = -1;
 
@@ -224,49 +213,80 @@ export function ExcelProcessorForm() {
           return null;
       };
 
-      let parseResult: { docData: any[][], headers: { headerRow: number, ebelnCol: number, belnrCol: number } } | null = null;
+      const parseExcelFile = (buffer: ArrayBuffer): ParseResult | null => {
+        try {
+          const workbook = XLSX.read(buffer, { type: 'buffer' });
+          if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) return null;
+          
+          let bestSheetData: any[][] | null = null;
+          let maxRows = 0;
 
-      if (isRealExcel(docBuffer)) {
-          const workbook = XLSX.read(docBuffer, { type: 'buffer' });
-          if (workbook && workbook.SheetNames && workbook.SheetNames.length > 0) {
-            // Find the sheet with the most rows
-            let bestSheetName = workbook.SheetNames[0];
-            let maxRows = 0;
-            for (const sheetName of workbook.SheetNames) {
-                const worksheet = workbook.Sheets[sheetName];
-                if (!worksheet) continue;
-                const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                if (data.length > maxRows) {
-                    maxRows = data.length;
-                    bestSheetName = sheetName;
-                }
+          for (const sheetName of workbook.SheetNames) {
+              const worksheet = workbook.Sheets[sheetName];
+              if (!worksheet) continue;
+              const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+              if (data.length > maxRows) {
+                  maxRows = data.length;
+                  bestSheetData = data;
+              }
+          }
+          
+          if (bestSheetData) {
+            return findHeadersInArray(bestSheetData);
+          }
+        } catch (e) {
+            console.warn("No se pudo analizar como archivo Excel estándar:", e);
+        }
+        return null;
+      }
+      
+      const parseHtmlFile = (buffer: ArrayBuffer): ParseResult | null => {
+        try {
+            const textData = new TextDecoder('latin1').decode(buffer);
+
+            // Attempt 1: Use DOMParser, the most robust method for any HTML
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(textData, 'text/html');
+            const table = htmlDoc.querySelector('table');
+
+            if (table) {
+                const dataFromHtml: any[][] = [];
+                const rows = table.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const rowData: any[] = [];
+                    const cells = row.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        rowData.push(cell.textContent?.trim() || '');
+                    });
+                    if (rowData.some(cell => cell !== '')) {
+                        dataFromHtml.push(rowData);
+                    }
+                });
+                const domResult = findHeadersInArray(dataFromHtml);
+                if (domResult) return domResult;
             }
-            const worksheet = workbook.Sheets[bestSheetName];
-            const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-            parseResult = findHeadersInArray(data);
-          }
-      } else {
-          // It's not a standard Excel file, treat it as HTML from SAP
-          const textData = new TextDecoder('latin1').decode(docBuffer);
-          const parser = new DOMParser();
-          const htmlDoc = parser.parseFromString(textData, 'text/html');
-          const table = htmlDoc.querySelector('table');
 
-          if (table) {
-              const dataFromHtml: any[][] = [];
-              const rows = table.querySelectorAll('tr');
-              rows.forEach(row => {
-                  const rowData: any[] = [];
-                  const cells = row.querySelectorAll('td, th');
-                  cells.forEach(cell => {
-                      rowData.push(cell.textContent?.trim() || '');
-                  });
-                  if (rowData.some(cell => cell !== '')) {
-                      dataFromHtml.push(rowData);
-                  }
-              });
-              parseResult = findHeadersInArray(dataFromHtml);
-          }
+            // Attempt 2: Fallback to XLSX library's built-in HTML parsing
+            const workbook = XLSX.read(textData, { type: 'string' });
+            if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) return null;
+
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            return findHeadersInArray(data);
+
+        } catch (e) {
+          console.warn("No se pudo analizar como archivo HTML:", e);
+        }
+        return null;
+      }
+
+      // Main multi-layered processing logic
+      let parseResult = parseExcelFile(docBuffer);
+      
+      if (!parseResult) {
+        setProgressMessage("No es un Excel estándar, intentando como HTML...");
+        parseResult = parseHtmlFile(docBuffer);
       }
       
       if (!parseResult) {
