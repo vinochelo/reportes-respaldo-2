@@ -191,14 +191,17 @@ export function ExcelProcessorForm() {
       const docWorksheet = docWorkbook.Sheets[docSheetName];
       const docData: any[][] = XLSX.utils.sheet_to_json(docWorksheet, { header: 1 });
 
-      const ebelnRegex = /EBELN|DOC\.?COMPR/;
-      const belnrRegex = /BELNR|DOC\.?MAT/;
+      if (!docData || docData.length === 0) {
+        throw new Error("El archivo de documentos (Tabla EKBE) parece estar vacío o en un formato no reconocido.");
+      }
+
+      const ebelnRegex = /EBELN|COMPR/;
+      const belnrRegex = /BELNR|MAT/;
 
       const docHeaderRowIndex = docData.findIndex(row => {
         if (!Array.isArray(row)) return false;
-        const upperCaseCells = row.map(cell => String(cell || '').trim().toUpperCase());
-        const hasEbeln = upperCaseCells.some(c => ebelnRegex.test(c));
-        const hasBelnr = upperCaseCells.some(c => belnrRegex.test(c));
+        const hasEbeln = row.some(cell => ebelnRegex.test(String(cell || '').toUpperCase()));
+        const hasBelnr = row.some(cell => belnrRegex.test(String(cell || '').toUpperCase()));
         return hasEbeln && hasBelnr;
       });
 
@@ -370,7 +373,7 @@ export function ExcelProcessorForm() {
           const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
           let currentHeaderSize = headerSize;
           
-          const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO', 'PVP S/IVA', '% UTILIDAD', 'COSTO TOTAL', 'PVP TOTAL', 'PROVEEDOR'];
+          const smallHeaders = ['CANT. IN', 'COSTO UNI', 'PVP S/IVA', '% UTILIDAD', 'COSTO TOTAL', 'PVP TOTAL', 'PROVEEDOR'];
           if (smallHeaders.includes(normalizedHeaderText)) {
             currentHeaderSize = 6;
           }
@@ -430,7 +433,7 @@ export function ExcelProcessorForm() {
                   const headerText = String(header || '');
                   const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
                   let currentHeaderSize = headerSize;
-                  const smallHeaders = ['ORD. DE COMPRA', 'VALOR A PAGAR', 'CANT. IN', 'COSTO UNI', 'FECHA INGRESO', 'PVP S/IVA', '% UTILIDAD', 'COSTO TOTAL', 'PVP TOTAL', 'PROVEEDOR'];
+                  const smallHeaders = ['CANT. IN', 'COSTO UNI', 'PVP S/IVA', '% UTILIDAD', 'COSTO TOTAL', 'PVP TOTAL', 'PROVEEDOR'];
                   if (smallHeaders.includes(normalizedHeaderText)) {
                     currentHeaderSize = 6;
                   }
