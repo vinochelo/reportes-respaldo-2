@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -186,12 +187,22 @@ export function ExcelProcessorForm() {
         return acc;
       }, {} as Record<string, any[][]>);
 
-      // 2. Process "Reporte Tabla EKBE" with robust multi-layered parsing
-      setProgressMessage("Leyendo reporte de documentos...");
-      const docBuffer = await documentosFile.arrayBuffer();
-
-      type ParseResult = { docData: any[][], headers: { headerRow: number, ebelnCol: number, belnrCol: number } };
+      // 2. Process "Reporte Tabla EKBE" with signature inspection
+      setProgressMessage("Inspeccionando y leyendo reporte de documentos...");
       
+      const isExcelFile = (buffer: ArrayBuffer): boolean => {
+        const view = new Uint8Array(buffer);
+        // XLSX (zip format) magic number: 50 4B 03 04
+        if (view.length > 4 && view[0] === 0x50 && view[1] === 0x4B && view[2] === 0x03 && view[3] === 0x04) {
+            return true;
+        }
+        // XLS (BIFF format) magic number: D0 CF 11 E0 A1 B1 1A E1
+        if (view.length > 8 && view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0 && view[4] === 0xA1 && view[5] === 0xB1 && view[6] === 0x1A && view[7] === 0xE1) {
+            return true;
+        }
+        return false;
+      };
+
       const findHeadersInArray = (data: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
         if (!data || data.length === 0) return null;
         let headerRow = -1, ebelnCol = -1, belnrCol = -1;
@@ -219,83 +230,40 @@ export function ExcelProcessorForm() {
         return null;
       };
 
-      let parseResult: ParseResult | null = null;
-
-      // ATTEMPT 1: Try parsing as a standard Excel file (binary)
-      setProgressMessage("Leyendo reporte de documentos (Método Excel)...");
-      try {
-        const workbook = XLSX.read(docBuffer, { type: 'buffer' });
-        for (const sheetName of workbook.SheetNames) {
-          const worksheet = workbook.Sheets[sheetName];
-          const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-          if (data.length > 0) {
-            const headers = findHeadersInArray(data);
-            if (headers) {
-              parseResult = { docData: data, headers };
-              break; 
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Could not parse as standard Excel file, will try HTML methods.", e);
-      }
-
-      // ATTEMPT 2: Try parsing as HTML using DOMParser (if Excel failed)
-      if (!parseResult) {
-        setProgressMessage("Intentando como HTML (Avanzado)...");
-        try {
+      const docBuffer = await documentosFile.arrayBuffer();
+      let docWorkbook;
+      
+      if (isExcelFile(docBuffer)) {
+          setProgressMessage("Leyendo como archivo Excel...");
+          docWorkbook = XLSX.read(docBuffer, { type: "buffer" });
+      } else {
+          setProgressMessage("Leyendo como archivo de texto (SAP)...");
           const textData = new TextDecoder('latin1').decode(docBuffer);
-          const parser = new DOMParser();
-          const htmlDoc = parser.parseFromString(textData, 'text/html');
-          const tables = Array.from(htmlDoc.querySelectorAll('table'));
+          docWorkbook = XLSX.read(textData, { type: "string" });
+      }
 
-          for (const table of tables) {
-            const dataFromHtml: any[][] = Array.from(table.querySelectorAll('tr')).map(row =>
-              Array.from(row.querySelectorAll('td, th')).map(cell => 
-                (cell as HTMLElement).innerText?.trim() || ''
-              )
-            ).filter(row => row.some(cell => cell !== ''));
-            
-            if (dataFromHtml.length > 0) {
-              const headers = findHeadersInArray(dataFromHtml);
-              if (headers) {
-                parseResult = { docData: dataFromHtml, headers };
-                break;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("DOMParser method failed, will try final fallback.", e);
+      let docData: any[][] = [];
+      let headers: { headerRow: number; ebelnCol: number; belnrCol: number } | null = null;
+      
+      let bestSheet: any[][] = [];
+      for (const sheetName of docWorkbook.SheetNames) {
+        const worksheet = docWorkbook.Sheets[sheetName];
+        const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+        if (sheetData.length > bestSheet.length) {
+            bestSheet = sheetData;
         }
       }
 
-      // ATTEMPT 3: Final fallback, parse as HTML using XLSX's own parser (if others failed)
-      if (!parseResult) {
-        setProgressMessage("Intentando como HTML (Alternativo)...");
-        try {
-          const textData = new TextDecoder('latin1').decode(docBuffer);
-          const workbook = XLSX.read(textData, { type: 'string' });
-          for (const sheetName of workbook.SheetNames) {
-            const worksheet = workbook.Sheets[sheetName];
-            const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-            if (data.length > 0) {
-              const headers = findHeadersInArray(data);
-              if (headers) {
-                parseResult = { docData: data, headers };
-                break;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("XLSX HTML parsing fallback also failed.", e);
-        }
+      if (bestSheet.length > 0) {
+        docData = bestSheet;
+        headers = findHeadersInArray(docData);
       }
 
-      if (!parseResult) {
-        throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos. Por favor, asegúrate de que el archivo es correcto y no está dañado.");
+      if (!headers || headers.headerRow === -1) {
+          const dataSample = (docData.length > 0 ? docData : [["No se pudo leer el archivo o está vacío."]]).slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
+          throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas:\n${dataSample}`);
       }
-
-      const { docData, headers } = parseResult;
+      
       const {headerRow: docHeaderRowIndex, ebelnCol: ebelnColIndex, belnrCol: belnrColIndex } = headers;
 
       const belnrToEbelnMap = new Map<string, string>();
@@ -366,7 +334,7 @@ export function ExcelProcessorForm() {
             if (!text || text.trim() === '') return [''];
             
             const lines: string[] = [];
-            const textBlocks = text.split('\n');
+            const textBlocks = text.split('\\n');
 
             for(const block of textBlocks) {
                 const words = block.split(' ');
@@ -840,3 +808,5 @@ export function ExcelProcessorForm() {
     </div>
   );
 }
+
+    
