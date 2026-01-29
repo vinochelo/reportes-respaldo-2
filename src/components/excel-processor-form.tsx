@@ -183,13 +183,20 @@ export function ExcelProcessorForm() {
         return acc;
       }, {} as Record<string, any[][]>);
 
-      // 2. Process "Reporte Tabla EKBE"
+      // 2. Process "Reporte Tabla EKBE" as an HTML file
       setProgressMessage("Leyendo reporte tabla EKBE...");
-      const docBuffer = await documentosFile.arrayBuffer();
-      const docWorkbook = XLSX.read(docBuffer);
-      const docSheetName = docWorkbook.SheetNames[0];
-      const docWorksheet = docWorkbook.Sheets[docSheetName];
-      const docData: any[][] = XLSX.utils.sheet_to_json(docWorksheet, { header: 1 });
+      const docHtml = await documentosFile.text();
+      const parser = new DOMParser();
+      const htmlDoc = parser.parseFromString(docHtml, 'text/html');
+      
+      const table = htmlDoc.querySelector('table');
+      if (!table) {
+        throw new Error("No se pudo encontrar una tabla HTML en el archivo de documentos. Asegúrese de que el archivo exportado de SAP sea una lista.");
+      }
+
+      const docData: any[][] = Array.from(table.rows).map(row => 
+        Array.from(row.cells).map(cell => cell.textContent?.trim() || '')
+      );
 
       if (!docData || docData.length === 0) {
         throw new Error("El archivo de documentos (Tabla EKBE) parece estar vacío o en un formato no reconocido.");
@@ -200,7 +207,7 @@ export function ExcelProcessorForm() {
       
       const docHeaderRowIndex = docData.findIndex(row => {
         if (!Array.isArray(row)) return false;
-        return row.some(cell => ebelnRegex.test(String(cell || '')) || belnrRegex.test(String(cell || '')));
+        return row.some(cell => ebelnRegex.test(String(cell || ''))) || row.some(cell => belnrRegex.test(String(cell || '')));
       });
       
       if (docHeaderRowIndex === -1) {
