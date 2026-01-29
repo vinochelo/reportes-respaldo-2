@@ -185,20 +185,11 @@ export function ExcelProcessorForm() {
 
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
-      const docText = await documentosFile.text();
-      
-      const tableRegex = /<table\b[^>]*>([\s\S]*?)<\/table>/i;
-      const tableMatch = docText.match(tableRegex);
-
-      if (!tableMatch) {
-          throw new Error("No se encontró una tabla HTML en el archivo de documentos. Asegúrese de que el archivo exportado de SAP sea una lista con una tabla.");
-      }
-
-      const tableHtml = tableMatch[0];
-      const documentosWorkbook = XLSX.read(tableHtml, { type: 'string' });
+      const documentosBuffer = await documentosFile.arrayBuffer();
+      const documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer' });
       
       if (documentosWorkbook.SheetNames.length === 0) {
-          throw new Error("No se pudo encontrar una tabla de datos en el archivo de documentos. Asegúrese de que el archivo exportado de SAP sea una lista.");
+          throw new Error("No se pudo encontrar una hoja de datos en el archivo de documentos. Asegúrese de que el archivo es un Excel válido.");
       }
 
       const documentosSheetName = documentosWorkbook.SheetNames[0];
@@ -711,7 +702,7 @@ export function ExcelProcessorForm() {
                   <strong>Subir Reporte de Utilidad:</strong> Carga tu reporte principal de utilidad en formato Excel (.xlsx o .xls).
                 </li>
                  <li>
-                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE, que puede ser un archivo HTML guardado como .xls.
+                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE en formato Excel (.xlsx o .xls).
                 </li>
                 <li>
                   <strong>Enlace de Datos:</strong> La aplicación asocia los números de documento (BELNR) del segundo archivo con sus órdenes de compra (EBELN / Ord. de Compra) correspondientes en el primer archivo.
@@ -772,8 +763,8 @@ export function ExcelProcessorForm() {
                          <li>En el campo <code>BELNR</code>, usa la selección múltiple para pegar todos los números de documento de la <code>MIR5</code>.</li>
                          <li>Ejecuta la selección (<strong>F8</strong>).</li>
                          <li>Asegúrate de que las columnas <code>BELNR</code> y <code>EBELN</code> estén visibles.</li>
-                         <li>Ve a <em>Sistema &gt; Lista &gt; Grabar &gt; Fichero local</em>.</li>
-                         <li>Elige la opción "Hoja de cálculo" y guarda el archivo. Este será el archivo que subirás.</li>
+                         <li>Exporta la lista (por ejemplo, desde el menú <em>Sistema &gt; Lista &gt; Grabar &gt; Fichero local</em>) eligiendo la opción "Hoja de cálculo".</li>
+                         <li>Guarda el archivo resultante en formato Excel (.xlsx o .xls). Este será el archivo que subirás.</li>
                        </ul>
                      </li>
                    </ol>
