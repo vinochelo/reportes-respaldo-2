@@ -192,33 +192,25 @@ export function ExcelProcessorForm() {
       let documentosWorkbook: XLSX.WorkBook;
       const documentosBuffer = await documentosFile.arrayBuffer();
 
-      // Heuristic to check if the file is HTML-based (common for SAP .xls exports)
-      const fileStartContent = new TextDecoder().decode(documentosBuffer.slice(0, 512)).toLowerCase();
-      
-      if (fileStartContent.includes('<html') || fileStartContent.includes('<table')) {
-        // File seems to be HTML, parse it using the browser's engine.
-        try {
-          const fileAsText = new TextDecoder().decode(documentosBuffer);
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(fileAsText, 'text/html');
-          const table = doc.querySelector('table');
-          
-          if (!table) {
-            throw new Error("El archivo parece ser HTML, pero no se encontró una etiqueta <table> en su interior.");
-          }
-
-          const worksheet = XLSX.utils.table_to_sheet(table);
-          documentosWorkbook = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(documentosWorkbook, worksheet, "Sheet1");
-        } catch (htmlError) {
-          throw new Error("Fallo al procesar el archivo como HTML. Por favor, verifica el formato del archivo.");
+      try {
+        // Heuristic to check if the file is HTML-based (common for SAP .xls exports)
+        const fileStartContent = new TextDecoder().decode(documentosBuffer.slice(0, 1024)).toLowerCase();
+        
+        if (fileStartContent.includes('<html') || fileStartContent.includes('<table')) {
+          // If it looks like HTML, decode the whole thing and let XLSX parse the string.
+          // Using 'latin1' for broader compatibility with SAP exports.
+          const fileAsText = new TextDecoder('latin1').decode(documentosBuffer);
+          documentosWorkbook = XLSX.read(fileAsText, { type: 'string' });
+        } else {
+          // If not, treat it as a standard binary Excel file.
+          documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer', cellDates: true });
         }
-      } else {
-        // Assume it's a real Excel binary file.
-        documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer', cellDates: true });
+      } catch (e) {
+        console.error("Error al leer el archivo de documentos (Tabla EKBE):", e);
+        throw new Error("No se pudo leer el archivo de documentos (Tabla EKBE). Verifique que el archivo no esté corrupto y sea un formato de Excel o HTML exportado de SAP válido.");
       }
       
-      if (documentosWorkbook.SheetNames.length === 0) {
+      if (!documentosWorkbook || documentosWorkbook.SheetNames.length === 0) {
           throw new Error("No se pudo encontrar una hoja de datos en el archivo de documentos. Asegúrese de que el archivo es un Excel válido.");
       }
 
