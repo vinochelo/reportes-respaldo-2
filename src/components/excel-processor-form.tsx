@@ -201,24 +201,33 @@ export function ExcelProcessorForm() {
         throw new Error("El archivo de documentos (Tabla EKBE) parece estar vacío o en un formato no reconocido.");
       }
       
-      const ebelnRegex = /ebeln|doc[\s\S]*compr/i;
-      const belnrRegex = /belnr|doc[\s\S]*mat/i;
-
       let docHeaderRowIndex = -1;
       let ebelnColIndex = -1;
       let belnrColIndex = -1;
 
       for (let i = 0; i < docData.length; i++) {
         const row = docData[i];
-        if (!Array.isArray(row)) continue;
+        if (!Array.isArray(row) || row.length === 0) continue;
 
-        const foundEbelnIndex = row.findIndex(cell => ebelnRegex.test(String(cell || '')));
-        const foundBelnrIndex = row.findIndex(cell => belnrRegex.test(String(cell || '')));
+        let foundEbeln = -1;
+        let foundBelnr = -1;
+        
+        row.forEach((cell, index) => {
+          // Normalize the cell content by removing all non-alphanumeric characters and converting to lower case.
+          const normalizedCell = String(cell || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          
+          if (normalizedCell.includes('ebeln') || normalizedCell.includes('doccompr')) {
+            foundEbeln = index;
+          }
+          if (normalizedCell.includes('belnr') || normalizedCell.includes('docmat')) {
+            foundBelnr = index;
+          }
+        });
 
-        if (foundEbelnIndex !== -1 && foundBelnrIndex !== -1) {
+        if (foundEbeln !== -1 && foundBelnr !== -1) {
           docHeaderRowIndex = i;
-          ebelnColIndex = foundEbelnIndex;
-          belnrColIndex = foundBelnrIndex;
+          ebelnColIndex = foundEbeln;
+          belnrColIndex = foundBelnr;
           break; // Found the header row
         }
       }
@@ -769,3 +778,5 @@ export function ExcelProcessorForm() {
     </div>
   );
 }
+
+    
