@@ -189,7 +189,7 @@ export function ExcelProcessorForm() {
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
       const documentosBuffer = await documentosFile.arrayBuffer();
-      const documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer' });
+      const documentosWorkbook = XLSX.read(documentosBuffer, { type: 'binary' });
       
       if (documentosWorkbook.SheetNames.length === 0) {
           throw new Error("No se pudo encontrar una hoja de datos en el archivo de documentos. Asegúrese de que el archivo es un Excel válido.");
@@ -705,7 +705,7 @@ export function ExcelProcessorForm() {
                   <strong>Subir Reporte de Utilidad:</strong> Carga tu reporte principal de utilidad en formato Excel (.xlsx o .xls).
                 </li>
                  <li>
-                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE en formato Excel (.xlsx o .xls).
+                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE en formato Excel (.xlsx o .xls). Este puede ser el archivo exportado directamente desde SAP.
                 </li>
                 <li>
                   <strong>Enlace de Datos:</strong> La aplicación asocia los números de documento (BELNR) del segundo archivo con sus órdenes de compra (EBELN / Ord. de Compra) correspondientes en el primer archivo.
@@ -767,7 +767,7 @@ export function ExcelProcessorForm() {
                          <li>Ejecuta la selección (<strong>F8</strong>).</li>
                          <li>Asegúrate de que las columnas <code>BELNR</code> y <code>EBELN</code> estén visibles.</li>
                          <li>Exporta la lista (por ejemplo, desde el menú <em>Sistema &gt; Lista &gt; Grabar &gt; Fichero local</em>) eligiendo la opción "Hoja de cálculo".</li>
-                         <li>Guarda el archivo resultante en formato Excel (.xlsx o .xls). Este será el archivo que subirás.</li>
+                         <li>Guarda el archivo resultante. Este será el archivo que subirás como segundo reporte.</li>
                        </ul>
                      </li>
                    </ol>
