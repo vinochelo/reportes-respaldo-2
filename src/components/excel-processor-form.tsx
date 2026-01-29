@@ -233,7 +233,8 @@ export function ExcelProcessorForm() {
       }
       
       if (docHeaderRowIndex === -1) {
-          throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.");
+          const dataSample = docData.slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
+          throw new Error(`No se encontró la fila de encabezado. Así es como se están leyendo las primeras 10 filas del archivo de documentos:\\n${dataSample}`);
       }
 
       const belnrToEbelnMap = new Map<string, string>();
