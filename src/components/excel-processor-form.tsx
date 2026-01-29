@@ -121,7 +121,6 @@ export function ExcelProcessorForm() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      // Clean up the object URL after download
       URL.revokeObjectURL(downloadUrl);
       setDownloadUrl(null);
     }
@@ -171,7 +170,6 @@ export function ExcelProcessorForm() {
       }
       
       const comprasDataRows = comprasData.slice(comprasHeaderRowIndex + 1);
-
       const normalizePO = (po: any) => String(po).trim().replace(/^0+/, '');
 
       const groupedByPurchaseOrder = comprasDataRows.reduce((acc, row) => {
@@ -213,26 +211,35 @@ export function ExcelProcessorForm() {
             return null;
         };
 
-        // --- Attempt 1: Parse as standard Excel ---
-        try {
-            setProgressMessage("Paso 1/2: Intentando leer como Excel...");
-            const workbook = XLSX.read(buffer, { type: 'buffer' });
-            for (const sheetName of workbook.SheetNames) {
-                const worksheet = workbook.Sheets[sheetName];
-                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                const headers = findHeadersInSheet(sheetData);
-                if (headers) {
-                    setProgressMessage("Éxito al leer como Excel.");
-                    return { docData: sheetData, headers };
-                }
-            }
-        } catch (e) {
-            console.warn("Fallo al leer como Excel, intentando como HTML.", e);
-        }
+        const view = new Uint8Array(buffer, 0, 8);
+        const isXlsx = view[0] === 0x50 && view[1] === 0x4B && view[2] === 0x03 && view[3] === 0x04; // XLSX
+        const isXls = view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0 && view[4] === 0xA1 && view[5] === 0xB1 && view[6] === 0x1A && view[7] === 0xE1; // XLS
 
-        // --- Attempt 2: Parse as HTML using DOMParser ---
+        if (isXlsx || isXls) {
+            setProgressMessage("Detectado archivo Excel. Procesando...");
+            try {
+                const workbook = XLSX.read(buffer, { type: 'buffer' });
+                let bestSheet: any[][] = [];
+                for (const sheetName of workbook.SheetNames) {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                    if (sheetData.length > bestSheet.length) {
+                        bestSheet = sheetData;
+                    }
+                }
+                if (bestSheet.length > 0) {
+                    const headers = findHeadersInSheet(bestSheet);
+                    if (headers) {
+                        return { docData: bestSheet, headers };
+                    }
+                }
+            } catch (e) {
+                console.warn("Error leyendo como Excel, intentando como HTML", e);
+            }
+        }
+        
+        setProgressMessage("Detectado archivo no-Excel. Leyendo como HTML...");
         try {
-            setProgressMessage("Paso 2/2: Intentando leer como HTML...");
             const textData = new TextDecoder('latin1').decode(buffer);
             const parser = new DOMParser();
             const doc = parser.parseFromString(textData, "text/html");
@@ -252,13 +259,12 @@ export function ExcelProcessorForm() {
               if (bestTableData.length > 0) {
                   const headers = findHeadersInSheet(bestTableData);
                   if (headers) {
-                      setProgressMessage("Éxito al leer como HTML.");
                       return { docData: bestTableData, headers };
                   }
               }
             }
         } catch (e) {
-            console.warn("Fallo al leer como HTML con DOMParser.", e);
+            console.warn("Error leyendo como HTML con DOMParser.", e);
         }
 
         return null;
