@@ -206,10 +206,9 @@ export function ExcelProcessorForm() {
       
       const docHeaderRowIndex = docData.findIndex(row => {
         if (!Array.isArray(row)) return false;
-        // Join all cell contents into a single string for robust matching.
-        // This helps find the header row even if there are formatting issues.
-        const fullRowString = row.map(cell => String(cell || '')).join(' | ');
-        return ebelnRegex.test(fullRowString) && belnrRegex.test(fullRowString);
+        const hasEbeln = row.some(cell => ebelnRegex.test(String(cell || '')));
+        const hasBelnr = row.some(cell => belnrRegex.test(String(cell || '')));
+        return hasEbeln && hasBelnr;
       });
       
       if (docHeaderRowIndex === -1) {
