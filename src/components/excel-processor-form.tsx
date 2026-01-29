@@ -183,20 +183,19 @@ export function ExcelProcessorForm() {
         return acc;
       }, {} as Record<string, any[][]>);
 
-      // 2. Process "Reporte Tabla EKBE" as an HTML file
+      // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
-      const docHtml = await documentosFile.text();
-      const parser = new DOMParser();
-      const htmlDoc = parser.parseFromString(docHtml, 'text/html');
+      const docText = await documentosFile.text();
+      // The file can be an HTML file saved as .xls. The `xlsx` library can parse HTML tables from a string.
+      const documentosWorkbook = XLSX.read(docText, { type: "string" });
       
-      const table = htmlDoc.querySelector('table');
-      if (!table) {
-        throw new Error("No se pudo encontrar una tabla HTML en el archivo de documentos. Asegúrese de que el archivo exportado de SAP sea una lista.");
+      if (documentosWorkbook.SheetNames.length === 0) {
+          throw new Error("No se pudo encontrar una tabla de datos en el archivo de documentos. Asegúrese de que el archivo exportado de SAP sea una lista con una tabla.");
       }
 
-      const docData: any[][] = Array.from(table.rows).map(row => 
-        Array.from(row.cells).map(cell => cell.textContent?.trim() || '')
-      );
+      const documentosSheetName = documentosWorkbook.SheetNames[0];
+      const documentosWorksheet = documentosWorkbook.Sheets[documentosSheetName];
+      const docData: any[][] = XLSX.utils.sheet_to_json(documentosWorksheet, { header: 1 });
 
       if (!docData || docData.length === 0) {
         throw new Error("El archivo de documentos (Tabla EKBE) parece estar vacío o en un formato no reconocido.");
