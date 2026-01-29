@@ -197,8 +197,8 @@ export function ExcelProcessorForm() {
       const docHeaderRowIndex = docData.findIndex(row => {
         if (!Array.isArray(row)) return false;
         const upperCaseCells = row.map(cell => String(cell || '').trim().toUpperCase());
-        const hasEbeln = ebelnNames.some(name => upperCaseCells.some(c => c.startsWith(name.toUpperCase())));
-        const hasBelnr = belnrNames.some(name => upperCaseCells.some(c => c.startsWith(name.toUpperCase())));
+        const hasEbeln = ebelnNames.some(name => upperCaseCells.some(c => c.includes(name.toUpperCase())));
+        const hasBelnr = belnrNames.some(name => upperCaseCells.some(c => c.includes(name.toUpperCase())));
         return hasEbeln && hasBelnr;
       });
 
@@ -209,7 +209,7 @@ export function ExcelProcessorForm() {
       
       const findColumnIndex = (headers: string[], possibleNames: string[]): number => {
         for (const name of possibleNames) {
-            const index = headers.findIndex(h => h.startsWith(name.toUpperCase()));
+            const index = headers.findIndex(h => h.includes(name.toUpperCase()));
             if (index !== -1) return index;
         }
         return -1;
