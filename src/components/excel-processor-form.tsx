@@ -187,9 +187,9 @@ export function ExcelProcessorForm() {
         return acc;
       }, {} as Record<string, any[][]>);
 
-      // 2. Process "Reporte Tabla EKBE" with signature inspection
+      // 2. Process "Reporte Tabla EKBE" with robust logic
       setProgressMessage("Inspeccionando y leyendo reporte de documentos...");
-      
+
       const isExcelFile = (buffer: ArrayBuffer): boolean => {
         const view = new Uint8Array(buffer);
         // XLSX (zip format) magic number: 50 4B 03 04
@@ -230,33 +230,51 @@ export function ExcelProcessorForm() {
         return null;
       };
 
-      const docBuffer = await documentosFile.arrayBuffer();
-      let docWorkbook;
-      
-      if (isExcelFile(docBuffer)) {
-          setProgressMessage("Leyendo como archivo Excel...");
-          docWorkbook = XLSX.read(docBuffer, { type: "buffer" });
-      } else {
-          setProgressMessage("Leyendo como archivo de texto (SAP)...");
-          const textData = new TextDecoder('latin1').decode(docBuffer);
-          docWorkbook = XLSX.read(textData, { type: "string" });
-      }
-
       let docData: any[][] = [];
       let headers: { headerRow: number; ebelnCol: number; belnrCol: number } | null = null;
-      
-      let bestSheet: any[][] = [];
-      for (const sheetName of docWorkbook.SheetNames) {
-        const worksheet = docWorkbook.Sheets[sheetName];
-        const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-        if (sheetData.length > bestSheet.length) {
-            bestSheet = sheetData;
-        }
-      }
+      const docBuffer = await documentosFile.arrayBuffer();
 
-      if (bestSheet.length > 0) {
+      if (isExcelFile(docBuffer)) {
+        setProgressMessage("Leyendo como archivo Excel...");
+        const docWorkbook = XLSX.read(docBuffer, { type: "buffer" });
+        let bestSheet: any[][] = [];
+        for (const sheetName of docWorkbook.SheetNames) {
+            const worksheet = docWorkbook.Sheets[sheetName];
+            const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            if (sheetData.length > bestSheet.length) {
+                bestSheet = sheetData;
+            }
+        }
         docData = bestSheet;
         headers = findHeadersInArray(docData);
+      } else {
+        setProgressMessage("Leyendo como archivo HTML (SAP)...");
+        try {
+            const textData = new TextDecoder('latin1').decode(docBuffer);
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(textData, "text/html");
+            
+            const tables = doc.querySelectorAll('table');
+            let largestTableData: string[][] = [];
+
+            if (tables.length > 0) {
+                tables.forEach(table => {
+                    const tableData = Array.from(table.rows).map(row => 
+                        Array.from(row.cells).map(cell => cell.innerText.trim())
+                    );
+                    if (tableData.length > largestTableData.length) {
+                        largestTableData = tableData;
+                    }
+                });
+            }
+            
+            if (largestTableData.length > 0) {
+                docData = largestTableData;
+                headers = findHeadersInArray(docData);
+            }
+        } catch (e) {
+            console.error("Error al procesar como HTML con DOMParser:", e);
+        }
       }
 
       if (!headers || headers.headerRow === -1) {
@@ -808,5 +826,3 @@ export function ExcelProcessorForm() {
     </div>
   );
 }
-
-    
