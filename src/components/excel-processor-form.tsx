@@ -214,7 +214,7 @@ export function ExcelProcessorForm() {
               throw new Error("No se pudo leer el archivo de documentos. Es posible que esté dañado o en un formato no compatible.");
           }
       }
-
+      
       const findHeadersAndData = (workbook: XLSX.WorkBook) => {
         if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
           return null;
@@ -797,5 +797,3 @@ export function ExcelProcessorForm() {
     </div>
   );
 }
-
-    
