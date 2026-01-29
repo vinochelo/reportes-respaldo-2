@@ -186,12 +186,11 @@ export function ExcelProcessorForm() {
         return acc;
       }, {} as Record<string, any[][]>);
       
-      // 2. Process "Reporte Tabla EKBE" with multi-layered strategy
+      // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Analizando reporte de documentos...");
       const docBuffer = await documentosFile.arrayBuffer();
 
       const parseDocumentsFile = (buffer: ArrayBuffer): { docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null => {
-        
         const findHeadersInSheet = (sheetData: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
             if (!sheetData || sheetData.length === 0) return null;
             for (let i = 0; i < Math.min(sheetData.length, 50); i++) {
@@ -212,57 +211,63 @@ export function ExcelProcessorForm() {
             return null;
         };
 
-        // Attempt 1: Read as standard Excel file
-        try {
-            setProgressMessage("Intentando leer como Excel...");
-            const workbook = XLSX.read(buffer, { type: 'buffer' });
-            let bestSheetData: any[][] = [];
-            for (const sheetName of workbook.SheetNames) {
-                const worksheet = workbook.Sheets[sheetName];
-                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                const headers = findHeadersInSheet(sheetData);
-                if (headers) {
-                    // Found headers in this sheet, assume it's the correct one
-                    setProgressMessage("Archivo procesado como Excel.");
-                    return { docData: sheetData, headers: headers };
-                }
-                // If not found, check if this is the largest sheet, for fallback
-                if (sheetData.length > bestSheetData.length) {
-                    bestSheetData = sheetData;
-                }
-            }
-        } catch (e) {
-            // Failed, will try next method
-        }
+        // Signature inspection
+        const view = new Uint8Array(buffer, 0, 8);
+        const isXlsx = view[0] === 0x50 && view[1] === 0x4B && view[2] === 0x03 && view[3] === 0x04;
+        const isXls = view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0 && view[4] === 0xA1 && view[5] === 0xB1 && view[6] === 0x1A && view[7] === 0xE1;
 
-        // Attempt 2: Read as HTML using DOMParser (most reliable for SAP HTML)
-        try {
-            setProgressMessage("Intentando leer como HTML (DOM)...");
-            const textData = new TextDecoder('latin1').decode(buffer);
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(textData, "text/html");
-            const tables = doc.querySelectorAll('table');
-            if (tables.length > 0) {
-                let largestTableData: string[][] = [];
-                tables.forEach(table => {
-                    const tableData = Array.from(table.rows).map(row => 
-                        Array.from(row.cells).map(cell => cell.innerText.trim())
-                    );
-                    const headers = findHeadersInSheet(tableData);
+        if (isXlsx || isXls) {
+            setProgressMessage("Archivo detectado como Excel. Procesando...");
+            try {
+                const workbook = XLSX.read(buffer, { type: 'buffer' });
+                let bestSheet: any[][] = [];
+                for (const sheetName of workbook.SheetNames) {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                    if (sheetData.length > bestSheet.length) {
+                        bestSheet = sheetData;
+                    }
+                }
+                if (bestSheet.length > 0) {
+                    const headers = findHeadersInSheet(bestSheet);
                     if (headers) {
-                        setProgressMessage("Archivo procesado como HTML.");
-                        return { docData: tableData, headers: headers };
+                        return { docData: bestSheet, headers: headers };
                     }
-                    if (tableData.length > largestTableData.length) {
-                        largestTableData = tableData;
-                    }
-                });
+                }
+            } catch (e) {
+                console.error("Error procesando archivo Excel real:", e);
             }
-        } catch (e) {
-             // Failed. The final error will be thrown outside this function.
+        } else {
+            setProgressMessage("Archivo detectado como HTML. Procesando...");
+            try {
+                const textData = new TextDecoder('latin1').decode(buffer);
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(textData, "text/html");
+                const tables = doc.querySelectorAll('table');
+
+                if (tables.length > 0) {
+                    let mainTableData: string[][] = [];
+                    tables.forEach(table => {
+                        if (table.rows.length > mainTableData.length) {
+                            mainTableData = Array.from(table.rows).map(row => 
+                                Array.from(row.cells).map(cell => cell.innerText.trim())
+                            );
+                        }
+                    });
+
+                    if (mainTableData.length > 0) {
+                        const headers = findHeadersInSheet(mainTableData);
+                        if (headers) {
+                            return { docData: mainTableData, headers: headers };
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Error procesando archivo HTML:", e);
+            }
         }
 
-        return null; // All attempts failed
+        return null;
       };
       
       const parseResult = parseDocumentsFile(docBuffer);
