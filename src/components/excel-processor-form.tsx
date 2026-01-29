@@ -195,20 +195,19 @@ export function ExcelProcessorForm() {
         throw new Error("El archivo de documentos (Tabla EKBE) parece estar vacío o en un formato no reconocido.");
       }
 
-      const ebelnRegex = /EBELN|COMPR/;
-      const belnrRegex = /BELNR|MAT/;
-
+      const ebelnRegex = /EBELN|COMPR/i;
+      const belnrRegex = /BELNR|MAT/i;
+      
       const docHeaderRowIndex = docData.findIndex(row => {
         if (!Array.isArray(row)) return false;
-        const hasEbeln = row.some(cell => ebelnRegex.test(String(cell || '').toUpperCase()));
-        const hasBelnr = row.some(cell => belnrRegex.test(String(cell || '').toUpperCase()));
-        return hasEbeln && hasBelnr;
+        return row.some(cell => ebelnRegex.test(String(cell || '')) || belnrRegex.test(String(cell || '')));
       });
-
+      
       if (docHeaderRowIndex === -1) {
           throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.");
       }
-      const docHeaders = docData[docHeaderRowIndex].map(h => String(h || '').trim().toUpperCase());
+      
+      const docHeaders = docData[docHeaderRowIndex].map(h => String(h || '').trim());
       
       const ebelnColIndex = docHeaders.findIndex(h => ebelnRegex.test(h));
       const belnrColIndex = docHeaders.findIndex(h => belnrRegex.test(h));
@@ -217,7 +216,7 @@ export function ExcelProcessorForm() {
           const missingCols = [];
           if (ebelnColIndex === -1) missingCols.push("EBELN/Doc.compr");
           if (belnrColIndex === -1) missingCols.push("BELNR/Doc.mat");
-          throw new Error(`No se pudieron encontrar las columnas requeridas: ${missingCols.join(' y ')}.`);
+          throw new Error(`La fila de encabezado encontrada no contiene ambas columnas necesarias. Faltan: ${missingCols.join(' y ')}. Por favor, verifique el archivo.`);
       }
 
       const belnrToEbelnMap = new Map<string, string>();
