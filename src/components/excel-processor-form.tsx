@@ -194,28 +194,6 @@ export function ExcelProcessorForm() {
       let ebelnColIndex = -1;
       let belnrColIndex = -1;
 
-      // ATTEMPT 1: Process as standard Excel file
-      try {
-        const documentosBuffer = await documentosFile.arrayBuffer();
-        const documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer' });
-
-        if (documentosWorkbook.SheetNames.length > 0) {
-            let bestSheet: any[][] = [];
-            let maxRows = 0;
-            for (const sheetName of documentosWorkbook.SheetNames) {
-                const currentSheet = documentosWorkbook.Sheets[sheetName];
-                const currentData: any[][] = XLSX.utils.sheet_to_json(currentSheet, { header: 1, defval: "" });
-                if (currentData.length > maxRows) {
-                    maxRows = currentData.length;
-                    bestSheet = currentData;
-                }
-            }
-            docData = bestSheet;
-        }
-      } catch (excelError) {
-          console.warn("Could not read document file as standard Excel. Will try as HTML.", excelError);
-      }
-
       const findHeaders = (data: any[][]) => {
           let headerRow = -1, ebelnCol = -1, belnrCol = -1;
           for (let i = 0; i < data.length; i++) {
@@ -244,17 +222,37 @@ export function ExcelProcessorForm() {
           }
           return { headerRow, ebelnCol, belnrCol };
       };
-
-      if (docData.length > 0) {
-          const headers = findHeaders(docData);
-          docHeaderRowIndex = headers.headerRow;
-          ebelnColIndex = headers.ebelnCol;
-          belnrColIndex = headers.belnrCol;
-      }
       
-      // ATTEMPT 2: If Excel processing failed, try as HTML table
+      // ATTEMPT 1: Try to parse as a standard Excel file.
+      try {
+          const buffer = await documentosFile.arrayBuffer();
+          const workbook = XLSX.read(buffer, { type: 'buffer' });
+          if (workbook.SheetNames.length > 0) {
+              let bestSheet: any[][] = [];
+              let maxRows = 0;
+              for (const sheetName of workbook.SheetNames) {
+                  const currentSheet = workbook.Sheets[sheetName];
+                  const currentData: any[][] = XLSX.utils.sheet_to_json(currentSheet, { header: 1, defval: "" });
+                  if (currentData.length > maxRows) {
+                      maxRows = currentData.length;
+                      bestSheet = currentData;
+                  }
+              }
+              const headers = findHeaders(bestSheet);
+              if (headers.headerRow !== -1) {
+                  docData = bestSheet;
+                  docHeaderRowIndex = headers.headerRow;
+                  ebelnColIndex = headers.ebelnCol;
+                  belnrColIndex = headers.belnrCol;
+              }
+          }
+      } catch (excelError) {
+          console.warn("Reading as Excel failed, will fallback to HTML.", excelError);
+      }
+
+      // ATTEMPT 2: If Excel parsing didn't find headers, try parsing as HTML.
       if (docHeaderRowIndex === -1) {
-          console.log("Excel parse failed to find headers. Retrying as HTML table...");
+          console.log("Could not find headers in Excel format, trying HTML format...");
           try {
               const fileText = await documentosFile.text();
               const parser = new DOMParser();
@@ -263,15 +261,19 @@ export function ExcelProcessorForm() {
 
               if (table) {
                   const worksheet = XLSX.utils.table_to_sheet(table, { raw: true });
-                  docData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                  
-                  const headers = findHeaders(docData);
-                  docHeaderRowIndex = headers.headerRow;
-                  ebelnColIndex = headers.ebelnCol;
-                  belnrColIndex = headers.belnrCol;
+                  const dataFromHtml: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                  const headers = findHeaders(dataFromHtml);
+                  if (headers.headerRow !== -1) {
+                      docData = dataFromHtml;
+                      docHeaderRowIndex = headers.headerRow;
+                      ebelnColIndex = headers.ebelnCol;
+                      belnrColIndex = headers.belnrCol;
+                  } else {
+                    docData = dataFromHtml;
+                  }
               }
           } catch (htmlError) {
-               console.error("Failed to parse file as HTML.", htmlError);
+              console.error("Parsing as HTML also failed.", htmlError);
           }
       }
 
@@ -748,7 +750,7 @@ export function ExcelProcessorForm() {
                   <strong>Subir Reporte de Utilidad:</strong> Carga tu reporte principal de utilidad en formato Excel (.xlsx o .xls).
                 </li>
                  <li>
-                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE. Puede ser un archivo Excel (.xlsx, .xls) o el archivo exportado directamente desde SAP (generalmente con extensión .xls pero formato HTML).
+                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE. Puede ser un archivo Excel (.xlsx, .xls) o el archivo exportado directamente desde SAP (generalmente con extensión .xls pero formato HTML). La aplicación intentará leer ambos formatos.
                 </li>
                 <li>
                   <strong>Enlace de Datos:</strong> La aplicación asocia los números de documento (BELNR) del segundo archivo con sus órdenes de compra (EBELN / Ord. de Compra) correspondientes en el primer archivo.
