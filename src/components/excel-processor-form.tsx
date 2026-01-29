@@ -204,12 +204,12 @@ export function ExcelProcessorForm() {
               let foundBelnr = -1;
               
               row.forEach((cell, index) => {
-                  const cellContent = String(cell || '');
-                  if (/ebeln/i.test(cellContent) || /doc\s*(\.|\s)*\s*compr/i.test(cellContent)) {
-                      foundEbeln = index;
+                  const cellContent = String(cell || '').replace(/\.|\s/g, '').toLowerCase();
+                  if (cellContent.includes('ebeln') || cellContent.includes('doccompr')) {
+                      if (foundEbeln === -1) foundEbeln = index;
                   }
-                  if (/belnr/i.test(cellContent) || /doc\s*(\.|\s)*\s*mat/i.test(cellContent)) {
-                      foundBelnr = index;
+                  if (cellContent.includes('belnr') || cellContent.includes('docmat')) {
+                      if (foundBelnr === -1) foundBelnr = index;
                   }
               });
 
@@ -223,63 +223,48 @@ export function ExcelProcessorForm() {
           return { headerRow, ebelnCol, belnrCol };
       };
       
-      // ATTEMPT 1: Try to parse as a standard Excel file.
+      // Unified reading logic: Read as buffer and let XLSX figure it out.
       try {
           const buffer = await documentosFile.arrayBuffer();
           const workbook = XLSX.read(buffer, { type: 'buffer' });
-          if (workbook.SheetNames.length > 0) {
-              let bestSheet: any[][] = [];
-              let maxRows = 0;
-              for (const sheetName of workbook.SheetNames) {
-                  const currentSheet = workbook.Sheets[sheetName];
-                  const currentData: any[][] = XLSX.utils.sheet_to_json(currentSheet, { header: 1, defval: "" });
-                  if (currentData.length > maxRows) {
-                      maxRows = currentData.length;
-                      bestSheet = currentData;
-                  }
-              }
-              const headers = findHeaders(bestSheet);
-              if (headers.headerRow !== -1) {
-                  docData = bestSheet;
-                  docHeaderRowIndex = headers.headerRow;
-                  ebelnColIndex = headers.ebelnCol;
-                  belnrColIndex = headers.belnrCol;
+
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            throw new Error("El archivo de documentos parece estar vacío o en un formato no reconocido por la librería.");
+          }
+
+          let bestSheetData: any[][] = [];
+          let maxRows = -1;
+
+          // Find the sheet with the most data, as SAP exports can have multiple "sheets".
+          for (const sheetName of workbook.SheetNames) {
+              const worksheet = workbook.Sheets[sheetName];
+              const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+              if (data.length > maxRows) {
+                  maxRows = data.length;
+                  bestSheetData = data;
               }
           }
-      } catch (excelError) {
-          console.warn("Reading as Excel failed, will fallback to HTML.", excelError);
-      }
+          
+          docData = bestSheetData;
 
-      // ATTEMPT 2: If Excel parsing didn't find headers, try parsing as HTML.
-      if (docHeaderRowIndex === -1) {
-          console.log("Could not find headers in Excel format, trying HTML format...");
-          try {
-              const fileText = await documentosFile.text();
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(fileText, "text/html");
-              const table = doc.querySelector("table");
-
-              if (table) {
-                  const worksheet = XLSX.utils.table_to_sheet(table, { raw: true });
-                  const dataFromHtml: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                  const headers = findHeaders(dataFromHtml);
-                  if (headers.headerRow !== -1) {
-                      docData = dataFromHtml;
-                      docHeaderRowIndex = headers.headerRow;
-                      ebelnColIndex = headers.ebelnCol;
-                      belnrColIndex = headers.belnrCol;
-                  } else {
-                    docData = dataFromHtml;
-                  }
-              }
-          } catch (htmlError) {
-              console.error("Parsing as HTML also failed.", htmlError);
+          if (docData.length === 0) {
+            throw new Error("No se pudo extraer ninguna tabla de datos válida del archivo de documentos.");
           }
+          
+          const headers = findHeaders(docData);
+          docHeaderRowIndex = headers.headerRow;
+          ebelnColIndex = headers.ebelnCol;
+          belnrColIndex = headers.belnrCol;
+
+      } catch (e) {
+          console.error("Error processing documents file:", e);
+          const errorMessage = e instanceof Error ? e.message : String(e);
+          throw new Error(`Falló la lectura del archivo de documentos. Error original: ${errorMessage}`);
       }
 
       // FINAL CHECK
       if (docHeaderRowIndex === -1) {
-          const dataSample = (docData.length > 0 ? docData : [["File could not be read or is empty."]]).slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
+          const dataSample = (docData.length > 0 ? docData : [["No se pudo leer el archivo o está vacío."]]).slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
           throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas:\n${dataSample}`);
       }
       
