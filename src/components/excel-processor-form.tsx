@@ -171,10 +171,13 @@ export function ExcelProcessorForm() {
       }
       
       const comprasDataRows = comprasData.slice(comprasHeaderRowIndex + 1);
+
+      const normalizePO = (po: any) => String(po).trim().replace(/^0+/, '');
+
       const groupedByPurchaseOrder = comprasDataRows.reduce((acc, row) => {
         const poNumber = row[purchaseOrderColIndex];
         if (poNumber) {
-          const poString = String(poNumber);
+          const poString = normalizePO(poNumber);
           if (!acc[poString]) {
             acc[poString] = [];
           }
@@ -242,7 +245,7 @@ export function ExcelProcessorForm() {
           const ebeln = row[ebelnColIndex];
           const belnr = row[belnrColIndex];
           if (ebeln && belnr) {
-              belnrToEbelnMap.set(String(belnr), String(ebeln));
+              belnrToEbelnMap.set(String(belnr).trim(), normalizePO(ebeln));
           }
       }
 
