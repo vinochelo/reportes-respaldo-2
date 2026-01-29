@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -187,30 +186,24 @@ export function ExcelProcessorForm() {
         return acc;
       }, {} as Record<string, any[][]>);
 
-      // 2. Process "Reporte Tabla EKBE" with robust logic
+      // 2. Process "Reporte Tabla EKBE" using the "Signature Inspection" strategy
       setProgressMessage("Inspeccionando y leyendo reporte de documentos...");
+      const docBuffer = await documentosFile.arrayBuffer();
 
       const isExcelFile = (buffer: ArrayBuffer): boolean => {
         const view = new Uint8Array(buffer);
         // XLSX (zip format) magic number: 50 4B 03 04
-        if (view.length > 4 && view[0] === 0x50 && view[1] === 0x4B && view[2] === 0x03 && view[3] === 0x04) {
-            return true;
-        }
+        if (view.length > 4 && view[0] === 0x50 && view[1] === 0x4B && view[2] === 0x03 && view[3] === 0x04) return true;
         // XLS (BIFF format) magic number: D0 CF 11 E0 A1 B1 1A E1
-        if (view.length > 8 && view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0 && view[4] === 0xA1 && view[5] === 0xB1 && view[6] === 0x1A && view[7] === 0xE1) {
-            return true;
-        }
+        if (view.length > 8 && view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0 && view[4] === 0xA1 && view[5] === 0xB1 && view[6] === 0x1A && view[7] === 0xE1) return true;
         return false;
       };
 
       const findHeadersInArray = (data: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
         if (!data || data.length === 0) return null;
-        let headerRow = -1, ebelnCol = -1, belnrCol = -1;
-    
         for (let i = 0; i < Math.min(data.length, 50); i++) {
             const row = data[i];
             if (!Array.isArray(row)) continue;
-    
             const ebelnIndex = row.findIndex(cell => {
                 const text = String(cell || '').toLowerCase().replace(/[\s._-]/g, '');
                 return text.includes('ebeln') || text.includes('doccompr') || text.includes('pedido');
@@ -219,12 +212,8 @@ export function ExcelProcessorForm() {
                 const text = String(cell || '').toLowerCase().replace(/[\s._-]/g, '');
                 return text.includes('belnr') || text.includes('docmat') || text.includes('nrodoc');
             });
-    
             if (ebelnIndex !== -1 && belnrIndex !== -1) {
-                headerRow = i;
-                ebelnCol = ebelnIndex;
-                belnrCol = belnrIndex;
-                return { headerRow, ebelnCol, belnrCol };
+                return { headerRow: i, ebelnCol: ebelnIndex, belnrCol: belnrIndex };
             }
         }
         return null;
@@ -232,7 +221,6 @@ export function ExcelProcessorForm() {
 
       let docData: any[][] = [];
       let headers: { headerRow: number; ebelnCol: number; belnrCol: number } | null = null;
-      const docBuffer = await documentosFile.arrayBuffer();
 
       if (isExcelFile(docBuffer)) {
         setProgressMessage("Archivo detectado como Excel. Leyendo...");
@@ -246,17 +234,14 @@ export function ExcelProcessorForm() {
             }
         }
         docData = bestSheet;
-        headers = findHeadersInArray(docData);
       } else {
-        setProgressMessage("Archivo no es Excel. Intentando leer como HTML de SAP...");
+        setProgressMessage("Archivo no es Excel. Leyendo como HTML de SAP...");
         try {
             const textData = new TextDecoder('latin1').decode(docBuffer);
             const parser = new DOMParser();
             const doc = parser.parseFromString(textData, "text/html");
-            
             const tables = doc.querySelectorAll('table');
             let largestTableData: string[][] = [];
-
             if (tables.length > 0) {
                 tables.forEach(table => {
                     const tableData = Array.from(table.rows).map(row => 
@@ -267,15 +252,15 @@ export function ExcelProcessorForm() {
                     }
                 });
             }
-            
             if (largestTableData.length > 0) {
                 docData = largestTableData;
-                headers = findHeadersInArray(docData);
             }
         } catch (e) {
-            console.error("Error al procesar como HTML con DOMParser:", e);
+            console.error("Error al procesar como HTML de SAP:", e);
         }
       }
+      
+      headers = findHeadersInArray(docData);
 
       if (!headers || headers.headerRow === -1) {
           const dataSample = (docData.length > 0 ? docData : [["No se pudo leer el archivo o está vacío."]]).slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
