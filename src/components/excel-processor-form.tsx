@@ -203,51 +203,72 @@ export function ExcelProcessorForm() {
         return false;
       };
 
-      let documentosWorkbook: XLSX.WorkBook;
+      const findHeadersInArray = (data: any[][]) => {
+          if (!data || data.length === 0) return null;
+          let headerRow = -1, ebelnCol = -1, belnrCol = -1;
+
+          for (let i = 0; i < Math.min(data.length, 50); i++) {
+              const row = data[i];
+              if (!Array.isArray(row)) continue;
+
+              const ebelnIndex = row.findIndex(cell => String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('ebeln') || String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('doccompr'));
+              const belnrIndex = row.findIndex(cell => String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('belnr') || String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('docmat'));
+
+              if (ebelnIndex !== -1 && belnrIndex !== -1) {
+                  headerRow = i;
+                  ebelnCol = ebelnIndex;
+                  belnrCol = belnrIndex;
+                  return { docData: data, headers: { headerRow, ebelnCol, belnrCol } };
+              }
+          }
+          return null;
+      };
+
+      let parseResult: { docData: any[][], headers: { headerRow: number, ebelnCol: number, belnrCol: number } } | null = null;
+
       if (isRealExcel(docBuffer)) {
-          documentosWorkbook = XLSX.read(docBuffer, { type: 'buffer' });
+          const workbook = XLSX.read(docBuffer, { type: 'buffer' });
+          if (workbook && workbook.SheetNames && workbook.SheetNames.length > 0) {
+            // Find the sheet with the most rows
+            let bestSheetName = workbook.SheetNames[0];
+            let maxRows = 0;
+            for (const sheetName of workbook.SheetNames) {
+                const worksheet = workbook.Sheets[sheetName];
+                if (!worksheet) continue;
+                const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                if (data.length > maxRows) {
+                    maxRows = data.length;
+                    bestSheetName = sheetName;
+                }
+            }
+            const worksheet = workbook.Sheets[bestSheetName];
+            const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            parseResult = findHeadersInArray(data);
+          }
       } else {
-          try {
-              const textData = new TextDecoder('latin1').decode(docBuffer);
-              documentosWorkbook = XLSX.read(textData, { type: 'string' });
-          } catch(e) {
-              throw new Error("No se pudo leer el archivo de documentos. Es posible que esté dañado o en un formato no compatible.");
+          // It's not a standard Excel file, treat it as HTML from SAP
+          const textData = new TextDecoder('latin1').decode(docBuffer);
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(textData, 'text/html');
+          const table = htmlDoc.querySelector('table');
+
+          if (table) {
+              const dataFromHtml: any[][] = [];
+              const rows = table.querySelectorAll('tr');
+              rows.forEach(row => {
+                  const rowData: any[] = [];
+                  const cells = row.querySelectorAll('td, th');
+                  cells.forEach(cell => {
+                      rowData.push(cell.textContent?.trim() || '');
+                  });
+                  if (rowData.some(cell => cell !== '')) {
+                      dataFromHtml.push(rowData);
+                  }
+              });
+              parseResult = findHeadersInArray(dataFromHtml);
           }
       }
       
-      const findHeadersAndData = (workbook: XLSX.WorkBook) => {
-        if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
-          return null;
-        }
-        
-        for (const sheetName of workbook.SheetNames) {
-            const worksheet = workbook.Sheets[sheetName];
-            if (!worksheet) continue;
-            const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-            if (!data || data.length < 1) continue;
-
-            let headerRow = -1, ebelnCol = -1, belnrCol = -1;
-
-            for (let i = 0; i < Math.min(data.length, 50); i++) {
-                const row = data[i];
-                if (!Array.isArray(row)) continue;
-
-                const ebelnIndex = row.findIndex(cell => String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('ebeln') || String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('doccompr'));
-                const belnrIndex = row.findIndex(cell => String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('belnr') || String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('docmat'));
-
-                if (ebelnIndex !== -1 && belnrIndex !== -1) {
-                    headerRow = i;
-                    ebelnCol = ebelnIndex;
-                    belnrCol = belnrIndex;
-                    return { docData: data, headers: { headerRow, ebelnCol, belnrCol } };
-                }
-            }
-        }
-        return null;
-      };
-      
-      const parseResult = findHeadersAndData(documentosWorkbook);
-
       if (!parseResult) {
         throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos. Por favor, asegúrate de que el archivo es correcto y no está dañado.");
       }
