@@ -188,8 +188,35 @@ export function ExcelProcessorForm() {
 
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
+      
+      let documentosWorkbook: XLSX.WorkBook;
       const documentosBuffer = await documentosFile.arrayBuffer();
-      const documentosWorkbook = XLSX.read(documentosBuffer, { type: 'binary' });
+
+      // Heuristic to check if the file is HTML-based (common for SAP .xls exports)
+      const fileStartContent = new TextDecoder().decode(documentosBuffer.slice(0, 512)).toLowerCase();
+      
+      if (fileStartContent.includes('<html') || fileStartContent.includes('<table')) {
+        // File seems to be HTML, parse it using the browser's engine.
+        try {
+          const fileAsText = new TextDecoder().decode(documentosBuffer);
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(fileAsText, 'text/html');
+          const table = doc.querySelector('table');
+          
+          if (!table) {
+            throw new Error("El archivo parece ser HTML, pero no se encontró una etiqueta <table> en su interior.");
+          }
+
+          const worksheet = XLSX.utils.table_to_sheet(table);
+          documentosWorkbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(documentosWorkbook, worksheet, "Sheet1");
+        } catch (htmlError) {
+          throw new Error("Fallo al procesar el archivo como HTML. Por favor, verifica el formato del archivo.");
+        }
+      } else {
+        // Assume it's a real Excel binary file.
+        documentosWorkbook = XLSX.read(documentosBuffer, { type: 'buffer', cellDates: true });
+      }
       
       if (documentosWorkbook.SheetNames.length === 0) {
           throw new Error("No se pudo encontrar una hoja de datos en el archivo de documentos. Asegúrese de que el archivo es un Excel válido.");
