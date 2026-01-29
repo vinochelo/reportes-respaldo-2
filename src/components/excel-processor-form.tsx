@@ -190,13 +190,41 @@ export function ExcelProcessorForm() {
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
 
-      let docData: any[][] = [];
-      let docHeaderRowIndex = -1;
-      let ebelnColIndex = -1;
-      let belnrColIndex = -1;
-      let headers;
+      const docBuffer = await documentosFile.arrayBuffer();
+      const docUint8 = new Uint8Array(docBuffer);
 
-      const findHeaders = (data: any[][]) => {
+      let docWorkbook;
+      // Check for XLS/XLSX file signature
+      const isCFB = (arr: Uint8Array) => arr.length > 3 && arr[0] === 0xd0 && arr[1] === 0xcf && arr[2] === 0x11 && arr[3] === 0xe0;
+      const isZIP = (arr: Uint8Array) => arr.length > 3 && arr[0] === 0x50 && arr[1] === 0x4b && arr[2] === 0x03 && arr[3] === 0x04;
+
+      if (isCFB(docUint8) || isZIP(docUint8)) {
+        console.log("File detected as binary Excel (XLS/XLSX).");
+        docWorkbook = XLSX.read(docBuffer, { type: 'buffer' });
+      } else {
+        console.log("File not detected as binary Excel, attempting to parse as HTML/text.");
+        try {
+          // Fallback for SAP's HTML-like export
+          const textData = new TextDecoder('latin1').decode(docBuffer);
+          docWorkbook = XLSX.read(textData, { type: 'string' });
+        } catch (e) {
+          console.error("Failed to parse as text/HTML", e);
+          throw new Error("El archivo de documentos no es un formato de Excel o HTML válido.");
+        }
+      }
+
+      if (!docWorkbook || !docWorkbook.SheetNames || docWorkbook.SheetNames.length === 0) {
+        throw new Error("No se pudo leer el archivo de documentos o no contiene hojas de cálculo.");
+      }
+      
+      let docData: any[][] = [];
+      let headers;
+      
+      for (const sheetName of docWorkbook.SheetNames) {
+        const worksheet = docWorkbook.Sheets[sheetName];
+        const currentSheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+        const findHeaders = (data: any[][]) => {
           let headerRow = -1, ebelnCol = -1, belnrCol = -1;
           for (let i = 0; i < data.length; i++) {
               const row = data[i];
@@ -219,60 +247,26 @@ export function ExcelProcessorForm() {
                   headerRow = i;
                   ebelnCol = foundEbeln;
                   belnrCol = foundBelnr;
-                  break; 
+                  return { headerRow, ebelnCol, belnrCol }; 
               }
           }
-          return { headerRow, ebelnCol, belnrCol };
-      };
+          return { headerRow: -1, ebelnCol: -1, belnrCol: -1 };
+        };
 
-      const buffer = await documentosFile.arrayBuffer();
-      const uint8 = new Uint8Array(buffer);
-      
-      const isCFB = (arr: Uint8Array) => arr.length > 3 && arr[0] === 0xd0 && arr[1] === 0xcf && arr[2] === 0x11 && arr[3] === 0xe0; // XLS
-      const isZIP = (arr: Uint8Array) => arr.length > 3 && arr[0] === 0x50 && arr[1] === 0x4b && arr[2] === 0x03 && arr[3] === 0x04; // XLSX
-
-      let workbook;
-
-      if (isCFB(uint8) || isZIP(uint8)) {
-        console.log("File detected as binary Excel (XLS/XLSX).");
-        workbook = XLSX.read(buffer, { type: 'buffer' });
-      } else {
-        console.log("File not detected as binary Excel, attempting to parse as HTML/text.");
-        try {
-          const textData = new TextDecoder('latin1').decode(buffer);
-          workbook = XLSX.read(textData, { type: 'string' });
-        } catch (e) {
-          console.error("Failed to parse as text/HTML", e);
-          throw new Error("El archivo de documentos no es un formato de Excel o HTML válido.");
+        const currentHeaders = findHeaders(currentSheetData);
+        if (currentHeaders.headerRow !== -1) {
+            docData = currentSheetData;
+            headers = currentHeaders;
+            break; 
         }
       }
 
-      if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
-        throw new Error("No se pudo leer el archivo de documentos o no contiene hojas de cálculo.");
-      }
-      
-      let bestSheetName = workbook.SheetNames[0];
-      let maxRows = 0;
-      for (const sheetName of workbook.SheetNames) {
-          const sheet = workbook.Sheets[sheetName];
-          const sheetData: any[][] = XLSX.utils.sheet_to_json(sheet, {header: 1});
-          if (sheetData.length > maxRows) {
-              maxRows = sheetData.length;
-              bestSheetName = sheetName;
-          }
-      }
-      let worksheet = workbook.Sheets[bestSheetName];
-      docData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-      headers = findHeaders(docData);
-      
-      if (headers.headerRow === -1) {
+      if (!headers || headers.headerRow === -1) {
           const dataSample = (docData.length > 0 ? docData : [["No se pudo leer el archivo o está vacío."]]).slice(0, 10).map(row => JSON.stringify(row)).join('\\n');
           throw new Error(`No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos.\nAsí es como se están leyendo las primeras 10 filas:\n${dataSample}`);
       }
       
-      docHeaderRowIndex = headers.headerRow;
-      ebelnColIndex = headers.ebelnCol;
-      belnrColIndex = headers.belnrCol;
+      const {headerRow: docHeaderRowIndex, ebelnCol: ebelnColIndex, belnrCol: belnrColIndex } = headers;
 
       const belnrToEbelnMap = new Map<string, string>();
       const docDataRows = docData.slice(docHeaderRowIndex + 1);
@@ -815,7 +809,4 @@ export function ExcelProcessorForm() {
       </div>
     </div>
   );
-
-    
-
-    
+}
