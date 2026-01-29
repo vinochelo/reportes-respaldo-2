@@ -190,71 +190,66 @@ export function ExcelProcessorForm() {
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Leyendo reporte tabla EKBE...");
       const docBuffer = await documentosFile.arrayBuffer();
+      
+      const isRealExcel = (buffer: ArrayBuffer): boolean => {
+        const view = new Uint8Array(buffer);
+        // XLSX (PKZIP) signature
+        if (view.length > 4 && view[0] === 0x50 && view[1] === 0x4B && view[2] === 0x03 && view[3] === 0x04) {
+          return true;
+        }
+        // XLS (OLE CF) signature
+        if (view.length > 8 && view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0 && view[4] === 0xA1 && view[5] === 0xB1 && view[6] === 0x1A && view[7] === 0xE1) {
+          return true;
+        }
+        return false;
+      };
 
-      const findDataInWorkbook = (workbook: XLSX.WorkBook) => {
+      let documentosWorkbook: XLSX.WorkBook;
+      if (isRealExcel(docBuffer)) {
+          console.log("File signature detected as Excel. Reading as 'buffer'.");
+          documentosWorkbook = XLSX.read(docBuffer, { type: 'buffer' });
+      } else {
+          console.log("File signature not detected as Excel. Assuming HTML/text format. Reading as 'string'.");
+          try {
+              const textData = new TextDecoder('latin1').decode(docBuffer);
+              documentosWorkbook = XLSX.read(textData, { type: 'string' });
+          } catch(e) {
+              throw new Error("No se pudo leer el archivo de documentos como texto. Es posible que esté dañado o en un formato no compatible.");
+          }
+      }
+
+      const findHeadersAndData = (workbook: XLSX.WorkBook) => {
         if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
           return null;
         }
-
+        
         for (const sheetName of workbook.SheetNames) {
-          const worksheet = workbook.Sheets[sheetName];
-          const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-          if (!data || data.length === 0) continue;
+            const worksheet = workbook.Sheets[sheetName];
+            if (!worksheet) continue;
+            const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            if (!data || data.length < 1) continue;
 
-          let headerRow = -1, ebelnCol = -1, belnrCol = -1;
-          for (let i = 0; i < data.length; i++) {
-            const row = data[i];
-            if (!Array.isArray(row) || row.length === 0) continue;
+            let headerRow = -1, ebelnCol = -1, belnrCol = -1;
 
-            let foundEbeln = -1;
-            let foundBelnr = -1;
+            for (let i = 0; i < Math.min(data.length, 50); i++) {
+                const row = data[i];
+                if (!Array.isArray(row)) continue;
 
-            row.forEach((cell, index) => {
-              const cellContent = String(cell || '').replace(/\.|\s|&nbsp;/g, '').toLowerCase();
-              if (cellContent.includes('ebeln') || cellContent.includes('doccompr')) {
-                if (foundEbeln === -1) foundEbeln = index;
-              }
-              if (cellContent.includes('belnr') || cellContent.includes('docmat')) {
-                if (foundBelnr === -1) foundBelnr = index;
-              }
-            });
+                const ebelnIndex = row.findIndex(cell => String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('ebeln') || String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('doccompr'));
+                const belnrIndex = row.findIndex(cell => String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('belnr') || String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('docmat'));
 
-            if (foundEbeln !== -1 && foundBelnr !== -1) {
-              headerRow = i;
-              ebelnCol = foundEbeln;
-              belnrCol = foundBelnr;
-              return {
-                docData: data,
-                headers: { headerRow, ebelnCol, belnrCol }
-              };
+                if (ebelnIndex !== -1 && belnrIndex !== -1) {
+                    headerRow = i;
+                    ebelnCol = ebelnIndex;
+                    belnrCol = belnrIndex;
+                    return { docData: data, headers: { headerRow, ebelnCol, belnrCol } };
+                }
             }
-          }
         }
-        return null; // Not found in any sheet of this workbook
+        return null;
       };
-
-      let parseResult = null;
-
-      // Attempt 1: Read as a standard Excel file
-      try {
-        const workbook = XLSX.read(docBuffer, { type: 'buffer' });
-        parseResult = findDataInWorkbook(workbook);
-        if (parseResult) console.log("Successfully parsed as binary Excel.");
-      } catch (e) {
-        console.log("Could not parse as binary Excel. Will try as text/HTML.");
-      }
-
-      // Attempt 2: If first attempt failed, read as text/HTML
-      if (!parseResult) {
-        try {
-          const textData = new TextDecoder('latin1').decode(docBuffer);
-          const workbook = XLSX.read(textData, { type: 'string' });
-          parseResult = findDataInWorkbook(workbook);
-          if (parseResult) console.log("Successfully parsed as text/HTML.");
-        } catch (e) {
-          console.error("Also failed to parse as text/HTML.", e);
-        }
-      }
+      
+      const parseResult = findHeadersAndData(documentosWorkbook);
 
       if (!parseResult) {
         throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos. Por favor, asegúrate de que el archivo es correcto y no está dañado.");
@@ -805,5 +800,3 @@ export function ExcelProcessorForm() {
     </div>
   );
 }
-
-    
