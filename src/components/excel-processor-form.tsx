@@ -186,109 +186,109 @@ export function ExcelProcessorForm() {
         return acc;
       }, {} as Record<string, any[][]>);
 
-      // 2. Process "Reporte Tabla EKBE"
-      setProgressMessage("Leyendo reporte tabla EKBE...");
+      // 2. Process "Reporte Tabla EKBE" with robust multi-layered parsing
+      setProgressMessage("Leyendo reporte de documentos...");
       const docBuffer = await documentosFile.arrayBuffer();
-      
+
       type ParseResult = { docData: any[][], headers: { headerRow: number, ebelnCol: number, belnrCol: number } };
-
-      const findHeadersInArray = (data: any[][]): ParseResult | null => {
-          if (!data || data.length === 0) return null;
-          let headerRow = -1, ebelnCol = -1, belnrCol = -1;
-
-          for (let i = 0; i < Math.min(data.length, 50); i++) {
-              const row = data[i];
-              if (!Array.isArray(row)) continue;
-
-              const ebelnIndex = row.findIndex(cell => String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('ebeln') || String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('doccompr'));
-              const belnrIndex = row.findIndex(cell => String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('belnr') || String(cell || '').replace(/[\s.]/g, '').toLowerCase().includes('docmat'));
-
-              if (ebelnIndex !== -1 && belnrIndex !== -1) {
-                  headerRow = i;
-                  ebelnCol = ebelnIndex;
-                  belnrCol = belnrIndex;
-                  return { docData: data, headers: { headerRow, ebelnCol, belnrCol } };
-              }
-          }
-          return null;
+      
+      const findHeadersInArray = (data: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
+        if (!data || data.length === 0) return null;
+        let headerRow = -1, ebelnCol = -1, belnrCol = -1;
+    
+        for (let i = 0; i < Math.min(data.length, 50); i++) {
+            const row = data[i];
+            if (!Array.isArray(row)) continue;
+    
+            const ebelnIndex = row.findIndex(cell => {
+                const text = String(cell || '').toLowerCase().replace(/[\s.]/g, '');
+                return text.includes('ebeln') || text.includes('doccompr') || text.includes('pedido');
+            });
+            const belnrIndex = row.findIndex(cell => {
+                const text = String(cell || '').toLowerCase().replace(/[\s.]/g, '');
+                return text.includes('belnr') || text.includes('docmat') || text.includes('nrodoc');
+            });
+    
+            if (ebelnIndex !== -1 && belnrIndex !== -1) {
+                headerRow = i;
+                ebelnCol = ebelnIndex;
+                belnrCol = belnrIndex;
+                return { headerRow, ebelnCol, belnrCol };
+            }
+        }
+        return null;
       };
 
-      const parseExcelFile = (buffer: ArrayBuffer): ParseResult | null => {
-        try {
-          const workbook = XLSX.read(buffer, { type: 'buffer' });
-          if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) return null;
-          
-          let bestSheetData: any[][] | null = null;
-          let maxRows = 0;
+      let parseResult: ParseResult | null = null;
 
-          for (const sheetName of workbook.SheetNames) {
-              const worksheet = workbook.Sheets[sheetName];
-              if (!worksheet) continue;
-              const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-              if (data.length > maxRows) {
-                  maxRows = data.length;
-                  bestSheetData = data;
-              }
+      // ATTEMPT 1: Try parsing as a standard Excel file (binary)
+      setProgressMessage("Leyendo reporte de documentos (Método Excel)...");
+      try {
+        const workbook = XLSX.read(docBuffer, { type: 'buffer' });
+        for (const sheetName of workbook.SheetNames) {
+          const worksheet = workbook.Sheets[sheetName];
+          const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+          if (data.length > 0) {
+            const headers = findHeadersInArray(data);
+            if (headers) {
+              parseResult = { docData: data, headers };
+              break; 
+            }
           }
-          
-          if (bestSheetData) {
-            return findHeadersInArray(bestSheetData);
+        }
+      } catch (e) {
+        console.warn("Could not parse as standard Excel file, will try HTML methods.", e);
+      }
+
+      // ATTEMPT 2: Try parsing as HTML using DOMParser (if Excel failed)
+      if (!parseResult) {
+        setProgressMessage("Intentando como HTML (Avanzado)...");
+        try {
+          const textData = new TextDecoder('latin1').decode(docBuffer);
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(textData, 'text/html');
+          const tables = Array.from(htmlDoc.querySelectorAll('table'));
+
+          for (const table of tables) {
+            const dataFromHtml: any[][] = Array.from(table.querySelectorAll('tr')).map(row =>
+              Array.from(row.querySelectorAll('td, th')).map(cell => cell.textContent?.trim() || '')
+            ).filter(row => row.some(cell => cell !== ''));
+            
+            if (dataFromHtml.length > 0) {
+              const headers = findHeadersInArray(dataFromHtml);
+              if (headers) {
+                parseResult = { docData: dataFromHtml, headers };
+                break;
+              }
+            }
           }
         } catch (e) {
-            console.warn("No se pudo analizar como archivo Excel estándar:", e);
+          console.warn("DOMParser method failed, will try final fallback.", e);
         }
-        return null;
       }
-      
-      const parseHtmlFile = (buffer: ArrayBuffer): ParseResult | null => {
+
+      // ATTEMPT 3: Final fallback, parse as HTML using XLSX's own parser (if others failed)
+      if (!parseResult) {
+        setProgressMessage("Intentando como HTML (Alternativo)...");
         try {
-            const textData = new TextDecoder('latin1').decode(buffer);
-
-            // Attempt 1: Use DOMParser, the most robust method for any HTML
-            const parser = new DOMParser();
-            const htmlDoc = parser.parseFromString(textData, 'text/html');
-            const table = htmlDoc.querySelector('table');
-
-            if (table) {
-                const dataFromHtml: any[][] = [];
-                const rows = table.querySelectorAll('tr');
-                rows.forEach(row => {
-                    const rowData: any[] = [];
-                    const cells = row.querySelectorAll('td, th');
-                    cells.forEach(cell => {
-                        rowData.push(cell.textContent?.trim() || '');
-                    });
-                    if (rowData.some(cell => cell !== '')) {
-                        dataFromHtml.push(rowData);
-                    }
-                });
-                const domResult = findHeadersInArray(dataFromHtml);
-                if (domResult) return domResult;
-            }
-
-            // Attempt 2: Fallback to XLSX library's built-in HTML parsing
-            const workbook = XLSX.read(textData, { type: 'string' });
-            if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) return null;
-
-            const sheetName = workbook.SheetNames[0];
+          const textData = new TextDecoder('latin1').decode(docBuffer);
+          const workbook = XLSX.read(textData, { type: 'string' });
+          for (const sheetName of workbook.SheetNames) {
             const worksheet = workbook.Sheets[sheetName];
             const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-            return findHeadersInArray(data);
-
+            if (data.length > 0) {
+              const headers = findHeadersInArray(data);
+              if (headers) {
+                parseResult = { docData: data, headers };
+                break;
+              }
+            }
+          }
         } catch (e) {
-          console.warn("No se pudo analizar como archivo HTML:", e);
+          console.warn("XLSX HTML parsing fallback also failed.", e);
         }
-        return null;
       }
 
-      // Main multi-layered processing logic
-      let parseResult = parseExcelFile(docBuffer);
-      
-      if (!parseResult) {
-        setProgressMessage("No es un Excel estándar, intentando como HTML...");
-        parseResult = parseHtmlFile(docBuffer);
-      }
-      
       if (!parseResult) {
         throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos. Por favor, asegúrate de que el archivo es correcto y no está dañado.");
       }
@@ -700,7 +700,7 @@ export function ExcelProcessorForm() {
           file={documentosFile}
           onFileChange={setDocumentosFile}
           placeholder="Subir Reporte Tabla EKBE"
-          accept=".xlsx, .xls"
+          accept=".xlsx, .xls, .htm, .html"
           icon={<FileText className="h-12 w-12" />}
         />
       </div>
