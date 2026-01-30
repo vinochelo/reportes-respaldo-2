@@ -207,59 +207,46 @@ export function ExcelProcessorForm() {
 
       const parseDocumentsFile = async (file: File): Promise<{ docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null> => {
         const buffer = await file.arrayBuffer();
+        let workbook;
 
-        // --- ATTEMPT 1: PARSE AS BINARY EXCEL ---
+        // The 'xlsx' library can handle multiple formats. We try binary first for .xlsx/.xls,
+        // then fall back to text for formats like TSV ("Texto con tabuladores").
         try {
             setProgressMessage("Intentando leer como archivo Excel...");
-            const workbook = XLSX.read(buffer, { type: 'buffer' });
-            let largestSheetData: any[][] = [];
-            let maxRows = 0;
-            for (const sheetName of workbook.SheetNames) {
-                const worksheet = workbook.Sheets[sheetName];
-                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                if (sheetData.length > maxRows) {
-                    largestSheetData = sheetData;
-                    maxRows = sheetData.length;
-                }
-            }
-
-            if (largestSheetData.length > 0) {
-                const headers = findHeaders(largestSheetData);
-                if (headers) {
-                    setProgressMessage("Archivo Excel procesado.");
-                    return { docData: largestSheetData, headers };
-                }
-            }
+            workbook = XLSX.read(buffer, { type: 'buffer' });
         } catch (e) {
-            console.warn("Fallo al leer como Excel binario. Se intentará como HTML.", e);
+            console.warn("Fallo al leer como Excel binario. Se intentará como texto.", e);
+            try {
+                setProgressMessage("Intentando leer como archivo de texto...");
+                const textData = new TextDecoder('utf-8').decode(buffer);
+                workbook = XLSX.read(textData, { type: 'string' });
+            } catch (textError) {
+                console.error("Fallo definitivo al procesar el archivo de documentos.", textError);
+                throw new Error("No se pudo leer el archivo de documentos. Asegúrate de que no esté corrupto y sea un formato válido (Excel o Texto con tabuladores).");
+            }
         }
 
-        // --- ATTEMPT 2: PARSE AS HTML/TEXT using XLSX (Robust fallback for SAP) ---
-        try {
-            setProgressMessage("Intentando leer como tabla HTML...");
-            const textData = new TextDecoder('utf-8').decode(buffer);
-            const workbook = XLSX.read(textData, { type: 'string' });
+        if (!workbook || !workbook.SheetNames.length) {
+            return null;
+        }
 
-            let largestSheetData: any[][] = [];
-            let maxRows = 0;
-            for (const sheetName of workbook.SheetNames) {
-                const worksheet = workbook.Sheets[sheetName];
-                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                 if (sheetData.length > maxRows) {
-                    largestSheetData = sheetData;
-                    maxRows = sheetData.length;
-                }
+        let largestSheetData: any[][] = [];
+        let maxRows = 0;
+        for (const sheetName of workbook.SheetNames) {
+            const worksheet = workbook.Sheets[sheetName];
+            const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            if (sheetData.length > maxRows) {
+                largestSheetData = sheetData;
+                maxRows = sheetData.length;
             }
-            
-            if (largestSheetData.length > 0) {
-                const headers = findHeaders(largestSheetData);
-                if (headers) {
-                    setProgressMessage("Archivo HTML procesado.");
-                    return { docData: largestSheetData, headers };
-                }
+        }
+        
+        if (largestSheetData.length > 0) {
+            const headers = findHeaders(largestSheetData);
+            if (headers) {
+                setProgressMessage("Archivo de documentos procesado.");
+                return { docData: largestSheetData, headers };
             }
-        } catch (e) {
-            console.error("Fallo definitivo al procesar como HTML.", e);
         }
         
         return null;
@@ -699,7 +686,7 @@ export function ExcelProcessorForm() {
           file={documentosFile}
           onFileChange={setDocumentosFile}
           placeholder="Subir Reporte Tabla EKBE"
-          accept=".xlsx, .xls, .htm, .html"
+          accept=".xlsx, .xls, .txt"
           icon={<FileText className="h-12 w-12" />}
         />
       </div>
@@ -762,7 +749,7 @@ export function ExcelProcessorForm() {
                   <strong>Subir Reporte de Utilidad:</strong> Carga tu reporte principal de utilidad en formato Excel (.xlsx o .xls).
                 </li>
                  <li>
-                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE. Puede ser un archivo Excel (.xlsx, .xls) o el archivo exportado directamente desde SAP (generalmente con extensión .xls pero formato HTML). La aplicación intentará leer ambos formatos.
+                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE. El formato recomendado es <strong>"Texto con tabuladores"</strong> (se guardará como archivo <code>.txt</code>), pero también puedes subir archivos Excel (<code>.xlsx</code>, <code>.xls</code>).
                 </li>
                 <li>
                   <strong>Enlace de Datos:</strong> La aplicación asocia los números de documento (BELNR) del segundo archivo con sus órdenes de compra (EBELN / Ord. de Compra) correspondientes en el primer archivo.
@@ -823,8 +810,8 @@ export function ExcelProcessorForm() {
                          <li>En el campo <code>BELNR</code>, usa la selección múltiple para pegar todos los números de documento de la <code>MIR5</code>.</li>
                          <li>Ejecuta la selección (<strong>F8</strong>).</li>
                          <li>Asegúrate de que las columnas <code>BELNR</code> y <code>EBELN</code> estén visibles.</li>
-                         <li>Exporta la lista (por ejemplo, desde el menú <em>Sistema &gt; Lista &gt; Grabar &gt; Fichero local</em>) eligiendo la opción "Hoja de cálculo".</li>
-                         <li>Guarda el archivo resultante. Este será el archivo que subirás como segundo reporte.</li>
+                         <li>Exporta la lista (por ejemplo, desde el menú <em>Sistema &gt; Lista &gt; Grabar &gt; Fichero local</em>). En la ventana de formato, selecciona <strong>"Texto con tabuladores"</strong>.</li>
+                         <li>Guarda el archivo. Generalmente tendrá una extensión <code>.txt</code>. Este es el archivo que debes subir.</li>
                        </ul>
                      </li>
                    </ol>
