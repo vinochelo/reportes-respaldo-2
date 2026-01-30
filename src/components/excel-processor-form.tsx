@@ -230,7 +230,7 @@ export function ExcelProcessorForm() {
         } else {
             setProgressMessage("Detectado archivo HTML. Procesando...");
             try {
-                const textData = new TextDecoder('latin1').decode(buffer);
+                const textData = new TextDecoder('utf-8').decode(buffer);
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(textData, "text/html");
                 const tables = doc.querySelectorAll('table');
