@@ -208,7 +208,7 @@ export function ExcelProcessorForm() {
       const parseDocumentsFile = async (file: File): Promise<{ docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null> => {
         const buffer = await file.arrayBuffer();
 
-        // --- ATTEMPT 1: PARSE AS EXCEL ---
+        // --- ATTEMPT 1: PARSE AS BINARY EXCEL ---
         try {
             setProgressMessage("Leyendo como archivo Excel...");
             const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -229,33 +229,32 @@ export function ExcelProcessorForm() {
                 }
             }
         } catch (e) {
-            console.warn("Fallo al leer como Excel. Esto es esperado para archivos HTML. Intentando como HTML...", e);
+            console.warn("Fallo al leer como Excel binario. Intentando como texto/HTML...", e);
         }
 
-        // --- ATTEMPT 2: PARSE AS HTML USING DOMPARSER ---
+        // --- ATTEMPT 2: PARSE AS HTML TABLE USING XLSX ---
         try {
-            setProgressMessage("Cambiando a modo de lectura HTML...");
+            setProgressMessage("Cambiando a modo de lectura de texto (HTML)...");
             const textData = new TextDecoder('utf-8').decode(buffer);
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(textData, "text/html");
-            const tables = Array.from(doc.getElementsByTagName("table"));
+            const workbook = XLSX.read(textData, { type: 'string' });
+            let largestSheetData: any[][] = [];
+            for (const sheetName of workbook.SheetNames) {
+                const worksheet = workbook.Sheets[sheetName];
+                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                if (sheetData.length > largestSheetData.length) {
+                    largestSheetData = sheetData;
+                }
+            }
 
-            if (tables.length > 0) {
-                const mainTable = tables.sort((a, b) => b.rows.length - a.rows.length)[0];
-                const tableData = Array.from(mainTable.rows).map(row => 
-                    Array.from(row.cells).map(cell => cell.innerText.trim())
-                );
-                
-                if (tableData.length > 0) {
-                    const headers = findHeaders(tableData);
-                    if (headers) {
-                        setProgressMessage("Archivo HTML procesado con éxito.");
-                        return { docData: tableData, headers };
-                    }
+            if (largestSheetData.length > 0) {
+                const headers = findHeaders(largestSheetData);
+                if (headers) {
+                    setProgressMessage("Archivo de texto/HTML procesado con éxito.");
+                    return { docData: largestSheetData, headers };
                 }
             }
         } catch(e) {
-             console.error("Fallo al procesar el archivo con el analizador DOM.", e);
+             console.error("Fallo final al procesar el archivo.", e);
         }
 
         return null;
