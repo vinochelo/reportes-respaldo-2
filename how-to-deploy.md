@@ -30,7 +30,7 @@ git init
 git add .
 
 # 3. Guarda una "instantánea" de tus cambios
-git commit -m "Initial commit"
+git commit -m "procesamiento modo seguro con txt"
 
 # 4. (Opcional) Renombra la rama a 'main', que es la convención actual
 git branch -M main

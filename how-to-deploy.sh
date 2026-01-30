@@ -26,8 +26,8 @@ git init
 echo "Paso 2: Añadiendo todos los archivos..."
 git add .
 
-echo "Paso 3: Creando el primer commit..."
-git commit -m "Initial commit"
+echo "Paso 3: Creando el commit..."
+git commit -m "procesamiento modo seguro con txt"
 
 echo "Paso 4: Renombrando la rama principal a 'main'..."
 git branch -M main
