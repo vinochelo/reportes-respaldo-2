@@ -186,10 +186,9 @@ export function ExcelProcessorForm() {
       
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Analizando reporte de documentos...");
-      const docBuffer = await documentosFile.arrayBuffer();
+      const parseDocumentsFile = async (file: File): Promise<{ docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null> => {
+        const buffer = await file.arrayBuffer();
 
-      const parseDocumentsFile = (buffer: ArrayBuffer): { docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null => {
-        
         const findHeadersInSheet = (sheetData: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
             if (!sheetData || sheetData.length === 0) return null;
             for (let i = 0; i < Math.min(sheetData.length, 50); i++) {
@@ -212,76 +211,52 @@ export function ExcelProcessorForm() {
             return null;
         };
 
-        // --- ATTEMPT 1: Try to read as a native Excel file ---
-        setProgressMessage("Intentando leer como archivo Excel...");
-        try {
+        // --- SIGNATURE INSPECTION ---
+        const view = new Uint8Array(buffer, 0, 8);
+        // .xlsx (PK..) or .xls (D0 CF 11 E0)
+        const isRealExcel = (view[0] === 0x50 && view[1] === 0x4B) || (view[0] === 0xD0 && view[1] === 0xCF);
+
+        if (isRealExcel) {
+            setProgressMessage("Detectado archivo Excel. Procesando...");
             const workbook = XLSX.read(buffer, { type: 'buffer' });
             for (const sheetName of workbook.SheetNames) {
                 const worksheet = workbook.Sheets[sheetName];
                 const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
                 const headers = findHeadersInSheet(sheetData);
                 if (headers) {
-                    setProgressMessage("Éxito al leer como Excel.");
                     return { docData: sheetData, headers };
                 }
             }
-        } catch (e) {
-            console.warn("Fallo al leer como Excel, se intentará como HTML.", e);
-        }
-
-        // --- ATTEMPT 2: Try to read as HTML using DOMParser ---
-        setProgressMessage("Intentando leer como archivo HTML (Método 1)...");
-        try {
-            const textData = new TextDecoder('latin1').decode(buffer);
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(textData, "text/html");
-            const tables = doc.querySelectorAll('table');
-            
-            if (tables.length > 0) {
-                let bestTableData: string[][] = [];
-                tables.forEach(table => {
-                    const currentTableData = Array.from(table.rows).map(row => 
+        } else {
+            setProgressMessage("Detectado archivo HTML. Procesando...");
+            try {
+                const textData = new TextDecoder('latin1').decode(buffer);
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(textData, "text/html");
+                const tables = doc.querySelectorAll('table');
+                
+                if (tables.length > 0) {
+                    let mainTable = Array.from(tables).reduce((p, c) => p.rows.length > c.rows.length ? p : c);
+                    const htmlData = Array.from(mainTable.rows).map(row => 
                         Array.from(row.cells).map(cell => cell.innerText.trim())
                     );
-                    if (currentTableData.length > bestTableData.length) {
-                        bestTableData = currentTableData;
-                    }
-                });
-
-                if (bestTableData.length > 0) {
-                    const headers = findHeadersInSheet(bestTableData);
-                    if (headers) {
-                        setProgressMessage("Éxito al leer como HTML (Método 1).");
-                        return { docData: bestTableData, headers };
+                    
+                    if (htmlData.length > 0) {
+                        const headers = findHeadersInSheet(htmlData);
+                        if (headers) {
+                            return { docData: htmlData, headers };
+                        }
                     }
                 }
+            } catch (e) {
+                console.error("Fallo al procesar el archivo como HTML con DOMParser.", e);
             }
-        } catch (e) {
-            console.warn("Fallo al leer como HTML con DOMParser.", e);
-        }
-
-        // --- ATTEMPT 3: Fallback to XLSX HTML parsing ---
-        setProgressMessage("Intentando leer como archivo HTML (Método 2)...");
-        try {
-            const textData = new TextDecoder('latin1').decode(buffer);
-            const workbook = XLSX.read(textData, { type: 'string' });
-            for (const sheetName of workbook.SheetNames) {
-                const worksheet = workbook.Sheets[sheetName];
-                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                const headers = findHeadersInSheet(sheetData);
-                if (headers) {
-                    setProgressMessage("Éxito al leer como HTML (Método 2).");
-                    return { docData: sheetData, headers };
-                }
-            }
-        } catch (e) {
-            console.warn("Fallo al leer como HTML con XLSX.", e);
         }
 
         return null;
       };
       
-      const parseResult = parseDocumentsFile(docBuffer);
+      const parseResult = await parseDocumentsFile(documentosFile);
 
       if (!parseResult) {
           throw new Error("No se encontró la fila de encabezado con ('EBELN' o 'Doc.compr.') y ('BELNR' o 'Doc.mat.') en el archivo de documentos. Por favor, asegúrate de que el archivo es correcto y no está dañado.");
