@@ -423,11 +423,12 @@ export function ExcelProcessorForm() {
         headers.forEach((header, i) => {
           const originalHeaderText = String(header || '');
           let headerText = originalHeaderText;
-          if (originalHeaderText.trim() === 'Ord. de Compra') {
+          const normalizedHeaderForCheck = originalHeaderText.trim().toUpperCase();
+          if (normalizedHeaderForCheck === 'ORD. DE COMPRA') {
             headerText = 'Ord. de Com.';
-          } else if (originalHeaderText.trim() === 'Cant. In') {
+          } else if (normalizedHeaderForCheck === 'CANT. IN') {
             headerText = 'Cant. .';
-          } else if (originalHeaderText.trim() === 'Costo Uni') {
+          } else if (normalizedHeaderForCheck === 'COSTO UNI') {
             headerText = 'Costo.';
           }
           
@@ -493,11 +494,12 @@ export function ExcelProcessorForm() {
                 headers.forEach((header, i) => {
                   const originalHeaderText = String(header || '');
                   let headerText = originalHeaderText;
-                  if (originalHeaderText.trim() === 'Ord. de Compra') {
+                  const normalizedHeaderForCheck = originalHeaderText.trim().toUpperCase();
+                  if (normalizedHeaderForCheck === 'ORD. DE COMPRA') {
                     headerText = 'Ord. de Com.';
-                  } else if (originalHeaderText.trim() === 'Cant. In') {
+                  } else if (normalizedHeaderForCheck === 'CANT. IN') {
                     headerText = 'Cant. .';
-                  } else if (originalHeaderText.trim() === 'Costo Uni') {
+                  } else if (normalizedHeaderForCheck === 'COSTO UNI') {
                     headerText = 'Costo.';
                   }
 
