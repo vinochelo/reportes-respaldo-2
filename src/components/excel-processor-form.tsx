@@ -189,20 +189,16 @@ export function ExcelProcessorForm() {
       const parseDocumentsFile = async (file: File): Promise<{ docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null> => {
         const buffer = await file.arrayBuffer();
 
-        const findHeadersInSheet = (sheetData: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
-            if (!sheetData || sheetData.length === 0) return null;
-            for (let i = 0; i < Math.min(sheetData.length, 50); i++) {
-                const row = sheetData[i];
+        const findHeaders = (data: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
+            if (!data || data.length === 0) return null;
+            for (let i = 0; i < Math.min(data.length, 50); i++) {
+                const row = data[i];
                 if (!Array.isArray(row)) continue;
                 
-                const ebelnIndex = row.findIndex(cell => {
-                    const text = String(cell || '').toLowerCase().replace(/[\s._-]/g, '');
-                    return text.includes('ebeln') || text.includes('doccompr') || text.includes('pedido');
-                });
-                const belnrIndex = row.findIndex(cell => {
-                    const text = String(cell || '').toLowerCase().replace(/[\s._-]/g, '');
-                    return text.includes('belnr') || text.includes('docmat') || text.includes('nrodoc');
-                });
+                const normalizedRow = row.map(cell => String(cell || '').toLowerCase().replace(/[\s._-]/g, ''));
+                
+                const ebelnIndex = normalizedRow.findIndex(text => text.includes('ebeln') || text.includes('doccompr') || text.includes('pedido'));
+                const belnrIndex = normalizedRow.findIndex(text => text.includes('belnr') || text.includes('docmat') || text.includes('nrodoc'));
 
                 if (ebelnIndex !== -1 && belnrIndex !== -1) {
                     return { headerRow: i, ebelnCol: ebelnIndex, belnrCol: belnrIndex };
@@ -211,53 +207,57 @@ export function ExcelProcessorForm() {
             return null;
         };
 
-        // --- ATTEMPT 1: PARSE AS EXCEL ---
-        setProgressMessage("Intentando leer como Excel...");
+        // --- ATTEMPT 1: PARSE AS EXCEL BINARY ---
         try {
+            setProgressMessage("Intentando leer como Excel...");
             const workbook = XLSX.read(buffer, { type: 'buffer' });
-            let largestSheet: any[][] = [];
+            let largestSheetData: any[][] = [];
             for (const sheetName of workbook.SheetNames) {
                 const worksheet = workbook.Sheets[sheetName];
                 const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                if (sheetData.length > largestSheet.length) {
-                    largestSheet = sheetData;
+                if (sheetData.length > largestSheetData.length) {
+                    largestSheetData = sheetData;
                 }
             }
-            if (largestSheet.length > 0) {
-                const headers = findHeadersInSheet(largestSheet);
+
+            if (largestSheetData.length > 0) {
+                const headers = findHeaders(largestSheetData);
                 if (headers) {
                     setProgressMessage("Archivo Excel procesado correctamente.");
-                    return { docData: largestSheet, headers };
+                    return { docData: largestSheetData, headers };
                 }
             }
         } catch (e) {
-            console.warn("Fallo al leer como Excel. Probando como HTML...", e);
+            console.warn("Fallo al leer como Excel binario. Esto es esperado para archivos HTML. Intentando como HTML...", e);
         }
 
-        // --- ATTEMPT 2: PARSE AS HTML (DOMParser) ---
-        setProgressMessage("Intentando leer como HTML...");
+        // --- ATTEMPT 2: PARSE AS HTML (using XLSX's HTML parser) ---
         try {
+            setProgressMessage("Cambiando a modo de compatibilidad HTML...");
             const textData = new TextDecoder('utf-8').decode(buffer);
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(textData, "text/html");
-            const tables = doc.querySelectorAll('table');
+            const workbook = XLSX.read(textData, { type: 'string' });
             
-            if (tables.length > 0) {
-                let mainTable = Array.from(tables).reduce((p, c) => p.rows.length > c.rows.length ? p : c, tables[0]);
-                const htmlData = Array.from(mainTable.rows).map(row => 
-                    Array.from(row.cells).map(cell => cell.innerText.trim())
-                );
-                
-                const headers = findHeadersInSheet(htmlData);
+            let largestSheetData: any[][] = [];
+            for (const sheetName of workbook.SheetNames) {
+                const worksheet = workbook.Sheets[sheetName];
+                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                if (sheetData.length > largestSheetData.length) {
+                    largestSheetData = sheetData;
+                }
+            }
+
+            if (largestSheetData.length > 0) {
+                const headers = findHeaders(largestSheetData);
                 if (headers) {
-                    setProgressMessage("Archivo HTML procesado correctamente.");
-                    return { docData: htmlData, headers };
+                    setProgressMessage("Archivo HTML procesado en modo de compatibilidad.");
+                    return { docData: largestSheetData, headers };
                 }
             }
         } catch (e) {
-            console.error("Fallo al procesar el archivo como HTML.", e);
+            console.error("Fallo al procesar el archivo en modo de compatibilidad HTML.", e);
         }
 
+        // If all attempts fail, return null.
         return null;
       };
       
