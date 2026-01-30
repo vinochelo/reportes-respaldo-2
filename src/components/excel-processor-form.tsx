@@ -208,9 +208,9 @@ export function ExcelProcessorForm() {
       const parseDocumentsFile = async (file: File): Promise<{ docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null> => {
         const buffer = await file.arrayBuffer();
 
-        // --- ATTEMPT 1: PARSE AS EXCEL BINARY ---
+        // --- ATTEMPT 1: PARSE AS EXCEL ---
         try {
-            setProgressMessage("Intentando leer como Excel...");
+            setProgressMessage("Leyendo como archivo Excel...");
             const workbook = XLSX.read(buffer, { type: 'buffer' });
             let largestSheetData: any[][] = [];
             for (const sheetName of workbook.SheetNames) {
@@ -229,38 +229,12 @@ export function ExcelProcessorForm() {
                 }
             }
         } catch (e) {
-            console.warn("Fallo al leer como Excel binario. Esto es esperado para archivos HTML. Intentando como HTML...", e);
+            console.warn("Fallo al leer como Excel. Esto es esperado para archivos HTML. Intentando como HTML...", e);
         }
 
-        // --- ATTEMPT 2: PARSE AS HTML (using XLSX's HTML parser) ---
+        // --- ATTEMPT 2: PARSE AS HTML USING DOMPARSER ---
         try {
-            setProgressMessage("Cambiando a modo de compatibilidad HTML...");
-            const textData = new TextDecoder('utf-8').decode(buffer);
-            const workbook = XLSX.read(textData, { type: 'string' });
-            
-            let largestSheetData: any[][] = [];
-            for (const sheetName of workbook.SheetNames) {
-                const worksheet = workbook.Sheets[sheetName];
-                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                if (sheetData.length > largestSheetData.length) {
-                    largestSheetData = sheetData;
-                }
-            }
-
-            if (largestSheetData.length > 0) {
-                const headers = findHeaders(largestSheetData);
-                if (headers) {
-                    setProgressMessage("Archivo HTML procesado en modo de compatibilidad.");
-                    return { docData: largestSheetData, headers };
-                }
-            }
-        } catch (e) {
-            console.error("Fallo al procesar el archivo en modo de compatibilidad HTML.", e);
-        }
-        
-        // --- ATTEMPT 3: PARSE AS HTML (using DOMParser as a final fallback) ---
-         try {
-            setProgressMessage("Usando analizador DOM como último recurso...");
+            setProgressMessage("Cambiando a modo de lectura HTML...");
             const textData = new TextDecoder('utf-8').decode(buffer);
             const parser = new DOMParser();
             const doc = parser.parseFromString(textData, "text/html");
@@ -275,16 +249,15 @@ export function ExcelProcessorForm() {
                 if (tableData.length > 0) {
                     const headers = findHeaders(tableData);
                     if (headers) {
-                        setProgressMessage("Analizador DOM tuvo éxito.");
+                        setProgressMessage("Archivo HTML procesado con éxito.");
                         return { docData: tableData, headers };
                     }
                 }
             }
         } catch(e) {
-             console.error("Fallo al procesar el archivo con DOMParser.", e);
+             console.error("Fallo al procesar el archivo con el analizador DOM.", e);
         }
 
-        // If all attempts fail, return null.
         return null;
       };
       
