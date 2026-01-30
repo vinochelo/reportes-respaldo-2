@@ -211,48 +211,53 @@ export function ExcelProcessorForm() {
             return null;
         };
 
-        // --- SIGNATURE INSPECTION ---
+        // --- ATTEMPT 1: PARSE AS NATIVE EXCEL ---
         const view = new Uint8Array(buffer, 0, 8);
-        // .xlsx (PK..) or .xls (D0 CF 11 E0)
         const isRealExcel = (view[0] === 0x50 && view[1] === 0x4B) || (view[0] === 0xD0 && view[1] === 0xCF);
 
         if (isRealExcel) {
             setProgressMessage("Detectado archivo Excel. Procesando...");
-            const workbook = XLSX.read(buffer, { type: 'buffer' });
-            for (const sheetName of workbook.SheetNames) {
-                const worksheet = workbook.Sheets[sheetName];
-                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                const headers = findHeadersInSheet(sheetData);
-                if (headers) {
-                    return { docData: sheetData, headers };
-                }
-            }
-        } else {
-            setProgressMessage("Detectado archivo HTML. Procesando...");
             try {
-                const textData = new TextDecoder('utf-8').decode(buffer);
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(textData, "text/html");
-                const tables = doc.querySelectorAll('table');
-                
-                if (tables.length > 0) {
-                    let mainTable = Array.from(tables).reduce((p, c) => p.rows.length > c.rows.length ? p : c);
-                    const htmlData = Array.from(mainTable.rows).map(row => 
-                        Array.from(row.cells).map(cell => cell.innerText.trim())
-                    );
-                    
-                    if (htmlData.length > 0) {
-                        const headers = findHeadersInSheet(htmlData);
-                        if (headers) {
-                            return { docData: htmlData, headers };
-                        }
+                const workbook = XLSX.read(buffer, { type: 'buffer' });
+                for (const sheetName of workbook.SheetNames) {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                    const headers = findHeadersInSheet(sheetData);
+                    if (headers) {
+                        return { docData: sheetData, headers };
                     }
                 }
             } catch (e) {
-                console.error("Fallo al procesar el archivo como HTML con DOMParser.", e);
+                console.error("Fallo al procesar como archivo Excel. Probando como HTML...", e);
             }
         }
 
+        // --- ATTEMPT 2: PARSE AS HTML (DOMParser) ---
+        // This is the most likely path for SAP exports, even with .xls extension
+        setProgressMessage("Detectado archivo HTML. Procesando...");
+        try {
+            // Use 'utf-8' as indicated by the SAP file's meta tag
+            const textData = new TextDecoder('utf-8').decode(buffer);
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(textData, "text/html");
+            const tables = doc.querySelectorAll('table');
+            
+            if (tables.length > 0) {
+                let mainTable = Array.from(tables).reduce((p, c) => p.rows.length > c.rows.length ? p : c, tables[0]);
+                const htmlData = Array.from(mainTable.rows).map(row => 
+                    Array.from(row.cells).map(cell => cell.innerText.trim())
+                );
+                
+                const headers = findHeadersInSheet(htmlData);
+                if (headers) {
+                    return { docData: htmlData, headers };
+                }
+            }
+        } catch (e) {
+            console.error("Fallo al procesar el archivo como HTML con DOMParser.", e);
+        }
+
+        // If all else fails, return null
         return null;
       };
       
