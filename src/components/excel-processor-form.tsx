@@ -186,6 +186,7 @@ export function ExcelProcessorForm() {
       
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Analizando reporte de documentos...");
+      
       const parseDocumentsFile = async (file: File): Promise<{ docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null> => {
         const buffer = await file.arrayBuffer();
 
