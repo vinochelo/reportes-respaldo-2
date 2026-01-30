@@ -211,32 +211,32 @@ export function ExcelProcessorForm() {
             return null;
         };
 
-        // --- ATTEMPT 1: PARSE AS NATIVE EXCEL ---
-        const view = new Uint8Array(buffer, 0, 8);
-        const isRealExcel = (view[0] === 0x50 && view[1] === 0x4B) || (view[0] === 0xD0 && view[1] === 0xCF);
-
-        if (isRealExcel) {
-            setProgressMessage("Detectado archivo Excel. Procesando...");
-            try {
-                const workbook = XLSX.read(buffer, { type: 'buffer' });
-                for (const sheetName of workbook.SheetNames) {
-                    const worksheet = workbook.Sheets[sheetName];
-                    const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                    const headers = findHeadersInSheet(sheetData);
-                    if (headers) {
-                        return { docData: sheetData, headers };
-                    }
+        // --- ATTEMPT 1: PARSE AS EXCEL ---
+        setProgressMessage("Intentando leer como Excel...");
+        try {
+            const workbook = XLSX.read(buffer, { type: 'buffer' });
+            let largestSheet: any[][] = [];
+            for (const sheetName of workbook.SheetNames) {
+                const worksheet = workbook.Sheets[sheetName];
+                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                if (sheetData.length > largestSheet.length) {
+                    largestSheet = sheetData;
                 }
-            } catch (e) {
-                console.error("Fallo al procesar como archivo Excel. Probando como HTML...", e);
             }
+            if (largestSheet.length > 0) {
+                const headers = findHeadersInSheet(largestSheet);
+                if (headers) {
+                    setProgressMessage("Archivo Excel procesado correctamente.");
+                    return { docData: largestSheet, headers };
+                }
+            }
+        } catch (e) {
+            console.warn("Fallo al leer como Excel. Probando como HTML...", e);
         }
 
         // --- ATTEMPT 2: PARSE AS HTML (DOMParser) ---
-        // This is the most likely path for SAP exports, even with .xls extension
-        setProgressMessage("Detectado archivo HTML. Procesando...");
+        setProgressMessage("Intentando leer como HTML...");
         try {
-            // Use 'utf-8' as indicated by the SAP file's meta tag
             const textData = new TextDecoder('utf-8').decode(buffer);
             const parser = new DOMParser();
             const doc = parser.parseFromString(textData, "text/html");
@@ -250,14 +250,14 @@ export function ExcelProcessorForm() {
                 
                 const headers = findHeadersInSheet(htmlData);
                 if (headers) {
+                    setProgressMessage("Archivo HTML procesado correctamente.");
                     return { docData: htmlData, headers };
                 }
             }
         } catch (e) {
-            console.error("Fallo al procesar el archivo como HTML con DOMParser.", e);
+            console.error("Fallo al procesar el archivo como HTML.", e);
         }
 
-        // If all else fails, return null
         return null;
       };
       
