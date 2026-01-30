@@ -187,26 +187,26 @@ export function ExcelProcessorForm() {
       // 2. Process "Reporte Tabla EKBE"
       setProgressMessage("Analizando reporte de documentos...");
       
+      const findHeaders = (data: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
+          if (!data || data.length === 0) return null;
+          for (let i = 0; i < Math.min(data.length, 50); i++) {
+              const row = data[i];
+              if (!Array.isArray(row)) continue;
+              
+              const normalizedRow = row.map(cell => String(cell || '').toLowerCase().replace(/[\s._-]/g, ''));
+              
+              const ebelnIndex = normalizedRow.findIndex(text => text.includes('ebeln') || text.includes('doccompr') || text.includes('pedido'));
+              const belnrIndex = normalizedRow.findIndex(text => text.includes('belnr') || text.includes('docmat') || text.includes('nrodoc'));
+
+              if (ebelnIndex !== -1 && belnrIndex !== -1) {
+                  return { headerRow: i, ebelnCol: ebelnIndex, belnrCol: belnrIndex };
+              }
+          }
+          return null;
+      };
+
       const parseDocumentsFile = async (file: File): Promise<{ docData: any[][], headers: { headerRow: number; ebelnCol: number; belnrCol: number } } | null> => {
         const buffer = await file.arrayBuffer();
-
-        const findHeaders = (data: any[][]): { headerRow: number, ebelnCol: number, belnrCol: number } | null => {
-            if (!data || data.length === 0) return null;
-            for (let i = 0; i < Math.min(data.length, 50); i++) {
-                const row = data[i];
-                if (!Array.isArray(row)) continue;
-                
-                const normalizedRow = row.map(cell => String(cell || '').toLowerCase().replace(/[\s._-]/g, ''));
-                
-                const ebelnIndex = normalizedRow.findIndex(text => text.includes('ebeln') || text.includes('doccompr') || text.includes('pedido'));
-                const belnrIndex = normalizedRow.findIndex(text => text.includes('belnr') || text.includes('docmat') || text.includes('nrodoc'));
-
-                if (ebelnIndex !== -1 && belnrIndex !== -1) {
-                    return { headerRow: i, ebelnCol: ebelnIndex, belnrCol: belnrIndex };
-                }
-            }
-            return null;
-        };
 
         // --- ATTEMPT 1: PARSE AS EXCEL BINARY ---
         try {
@@ -256,6 +256,32 @@ export function ExcelProcessorForm() {
             }
         } catch (e) {
             console.error("Fallo al procesar el archivo en modo de compatibilidad HTML.", e);
+        }
+        
+        // --- ATTEMPT 3: PARSE AS HTML (using DOMParser as a final fallback) ---
+         try {
+            setProgressMessage("Usando analizador DOM como último recurso...");
+            const textData = new TextDecoder('utf-8').decode(buffer);
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(textData, "text/html");
+            const tables = Array.from(doc.getElementsByTagName("table"));
+
+            if (tables.length > 0) {
+                const mainTable = tables.sort((a, b) => b.rows.length - a.rows.length)[0];
+                const tableData = Array.from(mainTable.rows).map(row => 
+                    Array.from(row.cells).map(cell => cell.innerText.trim())
+                );
+                
+                if (tableData.length > 0) {
+                    const headers = findHeaders(tableData);
+                    if (headers) {
+                        setProgressMessage("Analizador DOM tuvo éxito.");
+                        return { docData: tableData, headers };
+                    }
+                }
+            }
+        } catch(e) {
+             console.error("Fallo al procesar el archivo con DOMParser.", e);
         }
 
         // If all attempts fail, return null.
