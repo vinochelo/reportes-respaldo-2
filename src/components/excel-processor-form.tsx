@@ -213,11 +213,13 @@ export function ExcelProcessorForm() {
             setProgressMessage("Intentando leer como archivo Excel...");
             const workbook = XLSX.read(buffer, { type: 'buffer' });
             let largestSheetData: any[][] = [];
+            let maxRows = 0;
             for (const sheetName of workbook.SheetNames) {
                 const worksheet = workbook.Sheets[sheetName];
                 const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                if (sheetData.length > largestSheetData.length) {
+                if (sheetData.length > maxRows) {
                     largestSheetData = sheetData;
+                    maxRows = sheetData.length;
                 }
             }
 
@@ -229,36 +231,37 @@ export function ExcelProcessorForm() {
                 }
             }
         } catch (e) {
-            console.warn("Fallo al leer como Excel. Intentando como HTML...", e);
+            console.warn("Fallo al leer como Excel binario. Se intentará como HTML.", e);
         }
 
-        // --- ATTEMPT 2: PARSE AS HTML with DOMParser (More Robust) ---
+        // --- ATTEMPT 2: PARSE AS HTML/TEXT using XLSX (Robust fallback for SAP) ---
         try {
-            setProgressMessage("Intentando leer como HTML...");
+            setProgressMessage("Intentando leer como tabla HTML...");
             const textData = new TextDecoder('utf-8').decode(buffer);
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(textData, "text/html");
-            
-            const tables = Array.from(doc.getElementsByTagName('table'));
-            if (tables.length > 0) {
-                const mainTable = tables.reduce((a, b) => a.rows.length > b.rows.length ? a : b);
-                
-                const data = Array.from(mainTable.rows).map(row => 
-                    Array.from(row.cells).map(cell => cell.innerText.trim())
-                );
+            const workbook = XLSX.read(textData, { type: 'string' });
 
-                if (data.length > 0) {
-                    const headers = findHeaders(data);
-                    if (headers) {
-                        setProgressMessage("Archivo HTML procesado.");
-                        return { docData: data, headers };
-                    }
+            let largestSheetData: any[][] = [];
+            let maxRows = 0;
+            for (const sheetName of workbook.SheetNames) {
+                const worksheet = workbook.Sheets[sheetName];
+                const sheetData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                 if (sheetData.length > maxRows) {
+                    largestSheetData = sheetData;
+                    maxRows = sheetData.length;
+                }
+            }
+            
+            if (largestSheetData.length > 0) {
+                const headers = findHeaders(largestSheetData);
+                if (headers) {
+                    setProgressMessage("Archivo HTML procesado.");
+                    return { docData: largestSheetData, headers };
                 }
             }
         } catch (e) {
-            console.error("Fallo al procesar como HTML con DOMParser.", e);
+            console.error("Fallo definitivo al procesar como HTML.", e);
         }
-
+        
         return null;
       };
       
@@ -424,6 +427,7 @@ export function ExcelProcessorForm() {
           const originalHeaderText = String(header || '');
           let headerText = originalHeaderText;
           const normalizedHeaderForCheck = originalHeaderText.trim().toUpperCase();
+
           if (normalizedHeaderForCheck.startsWith("ORD. DE COMPRA")) {
             headerText = 'Ord. de Com.';
           } else if (normalizedHeaderForCheck.startsWith("CANT. IN")) {
