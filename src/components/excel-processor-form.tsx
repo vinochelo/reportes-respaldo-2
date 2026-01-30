@@ -421,8 +421,17 @@ export function ExcelProcessorForm() {
         })
         let currentX = pageLayout.margin;
         headers.forEach((header, i) => {
-          const headerText = String(header || '');
-          const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
+          const originalHeaderText = String(header || '');
+          let headerText = originalHeaderText;
+          if (originalHeaderText.trim() === 'Ord. de Compra') {
+            headerText = 'Ord. de Com.';
+          } else if (originalHeaderText.trim() === 'Cant. In') {
+            headerText = 'Cant. .';
+          } else if (originalHeaderText.trim() === 'Costo Uni') {
+            headerText = 'Costo.';
+          }
+          
+          const normalizedHeaderText = originalHeaderText.trim().replace(/\.?$/, '').toUpperCase();
           let currentHeaderSize = headerSize;
           
           const smallHeaders = ['ORD. DE COMPRA', 'CANT. IN', 'COSTO UNI', 'COSTO TOTAL', 'VALOR A PAGAR', 'PVP S/IVA', '% UTILIDAD', 'PVP TOTAL', 'PROVEEDOR'];
@@ -482,8 +491,17 @@ export function ExcelProcessorForm() {
                 });
                 let newX = pageLayout.margin;
                 headers.forEach((header, i) => {
-                  const headerText = String(header || '');
-                  const normalizedHeaderText = headerText.trim().replace(/\.?$/, '').toUpperCase();
+                  const originalHeaderText = String(header || '');
+                  let headerText = originalHeaderText;
+                  if (originalHeaderText.trim() === 'Ord. de Compra') {
+                    headerText = 'Ord. de Com.';
+                  } else if (originalHeaderText.trim() === 'Cant. In') {
+                    headerText = 'Cant. .';
+                  } else if (originalHeaderText.trim() === 'Costo Uni') {
+                    headerText = 'Costo.';
+                  }
+
+                  const normalizedHeaderText = originalHeaderText.trim().replace(/\.?$/, '').toUpperCase();
                   let currentHeaderSize = headerSize;
                   const smallHeaders = ['ORD. DE COMPRA', 'CANT. IN', 'COSTO UNI', 'COSTO TOTAL', 'VALOR A PAGAR', 'PVP S/IVA', '% UTILIDAD', 'PVP TOTAL', 'PROVEEDOR'];
                   if (smallHeaders.includes(normalizedHeaderText)) {
@@ -493,7 +511,7 @@ export function ExcelProcessorForm() {
                     currentHeaderSize = 5.5;
                   }
                   const textY = currentY - (headerLineHeight / 2) - (currentHeaderSize / 2) + 2;
-                  page.drawText(String(header || ''), { x: newX + 3, y: textY, font: helveticaBoldFont, size: currentHeaderSize, color: rgb(0,0,0) });
+                  page.drawText(headerText, { x: newX + 3, y: textY, font: helveticaBoldFont, size: currentHeaderSize, color: rgb(0,0,0) });
                   newX += scaledWidths[i];
 
                   if (i < headers.length - 1) { // Draw vertical dividers
