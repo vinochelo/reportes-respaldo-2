@@ -30,7 +30,8 @@ type Status = "idle" | "processing" | "success" | "error";
 interface FileInputProps {
   file: File | null;
   onFileChange: (file: File | null) => void;
-  placeholder: string;
+  title: string;
+  subtitle: string;
   accept: string;
   icon: React.ReactNode;
 }
@@ -38,7 +39,8 @@ interface FileInputProps {
 const FileInput: React.FC<FileInputProps> = ({
   file,
   onFileChange,
-  placeholder,
+  title,
+  subtitle,
   accept,
   icon,
 }) => {
@@ -66,8 +68,10 @@ const FileInput: React.FC<FileInputProps> = ({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center w-full p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
-        file ? "border-green-500 bg-green-500/10" : "border-border hover:border-primary/50 bg-card"
+        "group relative flex flex-col items-center justify-center w-full py-10 px-6 border-2 border-dashed rounded-3xl cursor-pointer transition-all duration-300",
+        file 
+          ? "border-blue-500 bg-blue-50/50" 
+          : "border-gray-200 hover:border-blue-500/50 hover:bg-blue-50/30 bg-white"
       )}
       onClick={() => inputRef.current?.click()}
     >
@@ -79,26 +83,41 @@ const FileInput: React.FC<FileInputProps> = ({
         onChange={handleFileChange}
       />
       {file ? (
-        <div className="text-center">
-          <div className="text-green-500">{icon}</div>
-          <p className="mt-2 font-semibold text-foreground">{file.name}</p>
-          <p className="text-xs text-muted-foreground">
+        <div className="text-center animate-in fade-in zoom-in duration-300">
+          <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+            <div className="text-blue-600">{icon}</div>
+          </div>
+          <p className="mt-2 text-lg font-semibold text-gray-900">{file.name}</p>
+          <p className="text-sm text-gray-500 mt-1">
             {Math.round(file.size / 1024)} KB
           </p>
           <Button
             variant="ghost"
             size="sm"
-            className="mt-2 text-destructive hover:text-destructive h-auto px-2 py-1"
+            className="mt-4 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full px-4"
             onClick={handleRemoveFile}
           >
-            <X className="mr-1 h-3 w-3" /> Quitar
+            <X className="mr-2 h-4 w-4" /> Quitar archivo
           </Button>
         </div>
       ) : (
-        <div className="text-center text-muted-foreground">
-          <UploadCloud className="mx-auto h-12 w-12" />
-          <p className="mt-2 font-semibold">{placeholder}</p>
-          <p className="text-xs">{accept.replaceAll(",", ", ")}</p>
+        <div className="text-center">
+          <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
+            <UploadCloud className="h-10 w-10 text-blue-500" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
+          <p className="text-sm text-gray-500 mb-6 max-w-[280px] mx-auto">{subtitle}</p>
+          <Button 
+            variant="default"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8 shadow-sm shadow-blue-200"
+            onClick={(e) => {
+              e.stopPropagation();
+              inputRef.current?.click();
+            }}
+          >
+            {icon}
+            <span className="ml-2">Seleccionar Archivo</span>
+          </Button>
         </div>
       )}
     </div>
@@ -304,7 +323,7 @@ export function ExcelProcessorForm() {
       const sortedBelnrs = Array.from(belnrToEbelnMap.keys()).sort();
 
       const pageLayout = {
-        size: [PageSizes.A4[1], PageSizes.A4[0]], // Landscape A4
+        size: [PageSizes.A4[1], PageSizes.A4[0]] as [number, number], // Landscape A4
         margin: 30,
       };
 
@@ -651,7 +670,7 @@ export function ExcelProcessorForm() {
       }
 
       const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const blob = new Blob([pdfBytes as any], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
       setStatus("success");
@@ -673,21 +692,23 @@ export function ExcelProcessorForm() {
   const isError = status === 'error';
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <FileInput
           file={comprasFile}
           onFileChange={setComprasFile}
-          placeholder="Subir Reporte de Utilidad"
+          title="Haz clic para subir Reporte de Utilidad"
+          subtitle="Formato .xlsx o .xls aceptado. Archivo desde ZREP PEDIDOS."
           accept=".xlsx, .xls"
-          icon={<FileSpreadsheet className="h-12 w-12" />}
+          icon={<FileSpreadsheet className="h-5 w-5" />}
         />
         <FileInput
           file={documentosFile}
           onFileChange={setDocumentosFile}
-          placeholder="Subir Reporte Tabla EKBE"
+          title="Haz clic para subir Tabla EKBE"
+          subtitle="Formato .txt o .xlsx aceptado. Archivo desde SE16."
           accept=".xlsx, .xls, .txt"
-          icon={<FileText className="h-12 w-12" />}
+          icon={<FileText className="h-5 w-5" />}
         />
       </div>
 
@@ -695,131 +716,129 @@ export function ExcelProcessorForm() {
         {isIdle && (
           <Button
             size="lg"
+            className="w-full md:w-auto px-12 py-6 text-lg rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200"
             onClick={handleProcess}
             disabled={!comprasFile || !documentosFile}
           >
-            Generar PDF <ArrowRight className="ml-2 h-4 w-4" />
+            Generar PDF <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         )}
 
         {isProcessing && (
-          <div className="flex items-center text-lg font-semibold text-primary">
-            <Loader2 className="mr-3 h-6 w-6 animate-spin" />
-            {progressMessage}
+          <div className="flex flex-col items-center space-y-4">
+            <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+            <div className="text-lg font-medium text-gray-700">
+              {progressMessage}
+            </div>
           </div>
         )}
 
         {isSuccess && (
-          <div className="text-center space-y-4">
-            <PartyPopper className="mx-auto h-12 w-12 text-green-500" />
-            <h3 className="text-2xl font-bold">¡Procesamiento Completo!</h3>
-            <p className="text-muted-foreground">Tu reporte en PDF se ha descargado automáticamente.</p>
-            <div className="flex justify-center gap-4">
-              <Button size="lg" variant="outline" onClick={resetState}>
-                Empezar de Nuevo
+          <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-2">
+              <PartyPopper className="h-10 w-10 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold text-gray-900 mb-2">¡Proceso Completado!</h3>
+              <p className="text-gray-500 text-lg">Tu reporte en PDF se ha descargado automáticamente.</p>
+            </div>
+            <div className="flex justify-center pt-2">
+              <Button size="lg" className="rounded-full px-8" variant="outline" onClick={resetState}>
+                Procesar Otros Archivos
               </Button>
             </div>
           </div>
         )}
 
         {isError && (
-          <div className="text-center space-y-4">
-             <h3 className="text-2xl font-bold text-destructive">¡Uy! Algo salió mal.</h3>
-             <p className="text-muted-foreground">No pudimos procesar tus reportes. Por favor, inténtalo de nuevo.</p>
-             <Button size="lg" onClick={resetState}>
-               <RefreshCw className="mr-2 h-4 w-4" />
-               Intentar de Nuevo
-             </Button>
+          <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="mx-auto w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mb-2">
+               <div className="text-rose-500 font-bold text-4xl">!</div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold text-rose-600 mb-2">¡Uy! Algo salió mal.</h3>
+              <p className="text-gray-500 text-lg">No pudimos procesar tus reportes. Por favor, inténtalo de nuevo.</p>
+            </div>
+             <div className="flex justify-center pt-2">
+               <Button size="lg" className="rounded-full px-8 bg-gray-900 text-white hover:bg-gray-800" onClick={resetState}>
+                 <RefreshCw className="mr-2 h-4 w-4" />
+                 Intentar de Nuevo
+               </Button>
+             </div>
           </div>
         )}
       </div>
 
-      <div className="pt-4 border-t">
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="item-1">
-            <AccordionTrigger>
-              <div className="flex items-center gap-2 font-semibold">
-                <HelpCircle className="h-5 w-5" />
-                ¿Cómo funciona el proceso?
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <ol className="list-decimal space-y-2 pl-6 text-sm text-muted-foreground">
-                <li>
-                  <strong>Subir Reporte de Utilidad:</strong> Carga tu reporte principal de utilidad en formato Excel (.xlsx o .xls).
-                </li>
-                 <li>
-                  <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE. El formato recomendado es <strong>"Texto con tabuladores"</strong> (se guardará como archivo <code>.txt</code>), pero también puedes subir archivos Excel (<code>.xlsx</code>, <code>.xls</code>).
-                </li>
-                <li>
-                  <strong>Enlace de Datos:</strong> La aplicación asocia los números de documento (BELNR) del segundo archivo con sus órdenes de compra (EBELN / Ord. de Compra) correspondientes en el primer archivo.
-                </li>
-                <li>
-                  <strong>Generación de PDF:</strong> Se crea un único documento PDF. El reporte está organizado por número de documento, y cada sección contiene la tabla de artículos de la orden de compra asociada.
-                </li>
-                <li>
-                  <strong>Descarga:</strong> Finalmente, tu PDF consolidado se descarga automáticamente.
-                </li>
-              </ol>
-            </AccordionContent>
-          </AccordionItem>
-          <AccordionItem value="item-2">
-            <AccordionTrigger>
-              <div className="flex items-center gap-2 font-semibold">
-                <HelpCircle className="h-5 w-5" />
-                Instrucciones para obtener los archivos de SAP
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 text-sm text-muted-foreground">
-                <div>
-                  <h4 className="font-semibold text-foreground mb-2">Paso Previo: Obtener Números de Documento (BELNR)</h4>
-                  <ol className="list-decimal space-y-2 pl-6">
-                    <li>
-                      <strong>Transacción <code>MIR5</code></strong>:
-                      <ul className="list-disc pl-5 mt-1 space-y-1">
-                        <li>Ingresa, filtra y descarga las facturas según el rango de fechas, usuario y sociedad.</li>
-                        <li>Copia o exporta los números de documento (<code>BELNR</code>), los necesitarás para los siguientes pasos.</li>
-                      </ul>
-                    </li>
-                  </ol>
+      <div className="pt-10 mb-[-1rem]">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-bold">1</div>
+            <h2 className="text-2xl font-semibold text-gray-900">¿Cómo funciona?</h2>
+          </div>
+          
+          <Accordion type="single" collapsible className="w-full bg-slate-50/50 rounded-2xl px-6 border border-slate-100">
+            <AccordionItem value="item-1" className="border-b border-slate-200/50">
+              <AccordionTrigger className="hover:no-underline py-4 text-base font-medium text-gray-800">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="h-5 w-5 text-slate-400" />
+                  El proceso paso a paso
                 </div>
+              </AccordionTrigger>
+              <AccordionContent className="text-slate-600 pb-6 leading-relaxed">
+                <ol className="list-decimal space-y-3 pl-6 mt-2">
+                  <li>
+                    <strong>Subir Reporte de Utilidad:</strong> Carga tu reporte principal de utilidad en formato Excel (.xlsx o .xls).
+                  </li>
+                  <li>
+                    <strong>Subir Reporte Tabla EKBE:</strong> Carga tu reporte de la tabla EKBE en formato <strong>"Texto con tabuladores"</strong> (archivo <code>.txt</code>) o Excel.
+                  </li>
+                  <li>
+                    <strong>Enlace de Datos:</strong> El sistema enlaza automáticamente los números de documento (BELNR) con sus órdenes correspondientes.
+                  </li>
+                  <li>
+                    <strong>Generación y Descarga:</strong> Se crea un PDF formateado y organizado por orden de compra que se descargará de inmediato.
+                  </li>
+                </ol>
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="item-2" className="border-none">
+              <AccordionTrigger className="hover:no-underline py-4 text-base font-medium text-gray-800">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="h-5 w-5 text-slate-400" />
+                  Instrucciones detalladas de SAP
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="text-slate-600 pb-6 leading-relaxed">
+                <div className="space-y-6 mt-2">
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-xs">P</span>
+                      Paso Previo: Obtener BELNR
+                    </h4>
+                    <p className="text-sm mb-2">Transacción <code>MIR5</code>. Filtra por fechas y usuario, luego copia los números de documento (BELNR).</p>
+                  </div>
 
-                <div>
-                  <h4 className="font-semibold text-foreground mb-2">Archivo 1: Reporte de Utilidad (desde ZREP PEDIDOS)</h4>
-                  <ol className="list-decimal space-y-2 pl-6">
-                    <li>
-                      <strong>Transacción <code>ZREP PEDIDOS</code></strong>:
-                      <ul className="list-disc pl-5 mt-1 space-y-1">
-                          <li>En el campo de selección de "Facturas", pega todos los números de documento que obtuviste.</li>
-                          <li>Ejecuta el reporte (<strong>F8</strong>).</li>
-                          <li>Exportar como "Hoja de cálculo" y luego guardar el archivo en formato Excel.</li>
-                      </ul>
-                    </li>
-                  </ol>
-                </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-xs">1</span>
+                      Reporte de Utilidad
+                    </h4>
+                    <p className="text-sm">Transacción <code>ZREP PEDIDOS</code>. Pega los documentos en 'Facturas', ejecuta (F8), y exporta a Excel.</p>
+                  </div>
 
-                <div>
-                  <h4 className="font-semibold text-foreground mb-2">Archivo 2: Reporte Tabla EKBE (desde SE16)</h4>
-                   <ol className="list-decimal space-y-2 pl-6">
-                     <li>
-                       <strong>Transacción <code>SE16</code></strong>:
-                       <ul className="list-disc pl-5 mt-1 space-y-1">
-                         <li>Ingresa a la transacción, escribe la tabla <strong><code>EKBE</code></strong> y presiona <strong>Enter</strong>.</li>
-                         <li>Carga la variante: Menú <em>Pasar a &gt; Variantes &gt; Traer...</em> y selecciona <strong><code>REVOC</code></strong>.</li>
-                         <li>En el campo <code>BELNR</code>, usa la selección múltiple para pegar todos los números de documento de la <code>MIR5</code>.</li>
-                         <li>Ejecuta la selección (<strong>F8</strong>).</li>
-                         <li>Asegúrate de que las columnas <code>BELNR</code> y <code>EBELN</code> estén visibles.</li>
-                         <li>Exporta la lista (por ejemplo, desde el menú <em>Sistema &gt; Lista &gt; Grabar &gt; Fichero local</em>). En la ventana de formato, selecciona <strong>"Texto con tabuladores"</strong>.</li>
-                         <li>Guarda el archivo. Generalmente tendrá una extensión <code>.txt</code>. Este es el archivo que debes subir.</li>
-                       </ul>
-                     </li>
-                   </ol>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-xs">2</span>
+                      Tabla EKBE
+                    </h4>
+                    <p className="text-sm">Transacción <code>SE16</code>, tabla <code>EKBE</code>. Variante <code>REVOC</code>. Pega los documentos, ejecuta (F8), y exporta como 'Texto con tabuladores' (.txt).</p>
+                  </div>
                 </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
       </div>
     </div>
   );
